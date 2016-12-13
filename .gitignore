@@ -1,5 +1,7 @@
 pom.xml
 pom.xml.asc
+*.html
+*.pages
 *jar
 /lib/
 /classes/

@@ -3,7 +3,7 @@
 #+ATTR_HTML: :align left
 [[./organa.png]]
 
-* Look, ma, no parser!
+* Look, ma, no parser[fn::at least, no incomplete, hand-rolled, regex-based parser of the highly irregular Org Mode "grammar"...]!
 
 This project records my recent experiments with publishing static
 sites using Org Mode.  See https://github.com/eigenhombre/blorg for a

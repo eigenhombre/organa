@@ -1,0 +1,4 @@
+#+TITLE: Organa
+
+#+ATTR_HTML: :align left
+[[./organa.png]]

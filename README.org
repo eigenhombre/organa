@@ -5,15 +5,22 @@
 
 * Look, ma, no parser!
 
-This project records my experiments with publishing static sites using
-Org Mode.  See https://github.com/eigenhombre/blorg for a previous example.
+This project records my recent experiments with publishing static
+sites using Org Mode.  See https://github.com/eigenhombre/blorg for a
+previous example.
 
 In the past I've written a few Org Mode parsers, but HTML is far
 easier to parse in Clojure using Hiccup or Enlive.  The current code
 relies on exporting to HTML first, parsing that, and modifying the
 parse tree as needed.
 
-Do not use this yet.
+Do not use this yet.  But, for the curious, my current workflow is:
+
+1. uncomment the final form in =src/organa/core.clj=
+2. make edits to the Org Mode source directory =local-site-dir=
+3. reevaluate the namespace, causing the site to be generated and
+   synced to a Digital Ocean instance.
+4. Go to 2.
 
 * License
 

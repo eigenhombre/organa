@@ -24,7 +24,34 @@
              "."]})
 
 
-(defn transform-enlive [available-files css enl]
+(defn title-for-org-file [site-source-dir basename]
+  (-> (format "%s/%s.html" site-source-dir basename)
+      slurp
+      html/html-snippet
+      (html/select [:h1.title])
+      first
+      :content
+      first))
+
+
+(defn articles-nav-bar [site-source-dir available-files]
+  {:tag :div
+   :content
+   (list* {:tag :p
+           :content [{:tag :a
+                      :attrs {:href "index.html"}
+                      :content ["Home"]}]}
+          {:tag :hr}
+          {:tag :p
+           :content ["Other articles"]}
+          (for [f (remove #{"index"} available-files)]
+            {:tag :p
+             :content [{:tag :a
+                        :attrs {:href (str f ".html")}
+                        :content [(title-for-org-file site-source-dir f)]}]}))})
+
+
+(defn transform-enlive [site-source-dir available-files css enl]
   (html/at enl
            [:head :style] nil
            [:head :script] nil
@@ -36,47 +63,31 @@
            [:head] (html/append [{:tag :style
                                   :content css}])
            [:div#content] (html/append
-                           (concat
-                            [{:tag :p
-                              :content ["Available files:"]}]
-                            (for [f available-files]
-                              {:tag :p
-                               :content [{:tag :a
-                                          :attrs {:href (str f ".html")}
-                                          :content [f]}]})
-                            [(footer)]))))
+                           (articles-nav-bar site-source-dir
+                                             available-files)
+                           (footer))))
 
 
-(defn process-org-html [available-files css txt]
+(defn process-org-html [site-source-dir available-files css txt]
   (->> txt
        html/html-snippet  ;; convert to Enlive
        (drop 3)           ;; remove useless stuff at top
-       (transform-enlive available-files css)
+       (transform-enlive site-source-dir available-files css)
        html/emit*         ;; turn back into html
        (apply str)))
 
 
-(defn sh [& cmds]
-  (apply clojure.java.shell/sh
-         (clojure.string/split (apply str cmds) #"\s+")))
+(defn process-html-file! [site-source-dir target-dir file-name
+                          available-files extra-css]
+  (->> file-name
+       (str site-source-dir "/")
+       slurp
+       (process-org-html site-source-dir available-files extra-css)
+       (spit (str target-dir "/" file-name))))
 
 
-;; Bash-y stuff ............................................
-(defn ensure-target-dir-exists! [target-dir]
-  (sh "mkdir -p " target-dir))
-
-
-(defn stage-site-image-files! [local-site-dir target-dir]
-  (doseq [f (->> local-site-dir
-                 clojure.java.io/file
-                 file-seq
-                 (map #(.toString %))
-                 (filter (partial re-find #"\.png|\.gif$")))]
-    (sh "cp " f " " target-dir)))
-
-
-(defn available-org-files [local-site-dir]
-  (->> local-site-dir
+(defn available-org-files [site-source-dir]
+  (->> site-source-dir
        clojure.java.io/file
        file-seq
        (filter (comp #(.endsWith % ".org") str))
@@ -84,27 +95,22 @@
        (map #(.substring % 0 (.lastIndexOf % ".")))))
 
 
-(defn process-html-file! [local-site-dir target-dir file-name
-                          available-files extra-css]
-  (->> file-name
-       (str local-site-dir "/")
-       slurp
-       (process-org-html available-files extra-css)
-       (spit (str target-dir "/" file-name))))
+(defn sh [& cmds]
+  (apply clojure.java.shell/sh
+         (clojure.string/split (apply str cmds) #"\s+")))
 
 
-(defn sync-tmp-files-to-remote! [key-location
-                                 target-dir
-                                 remote-host
-                                 remote-dir]
-  ;; FIXME: Make less hack-y:
-  (spit "/tmp/sync-script"
-        (format "rsync --rsh 'ssh -i %s' -vurt %s/* root@%s:%s"
-                key-location
-                target-dir
-                remote-host
-                remote-dir))
-  (sh "bash /tmp/sync-script"))
+(defn ensure-target-dir-exists! [target-dir]
+  (sh "mkdir -p " target-dir))
+
+
+(defn stage-site-image-files! [site-source-dir target-dir]
+  (doseq [f (->> site-source-dir
+                 clojure.java.io/file
+                 file-seq
+                 (map #(.toString %))
+                 (filter (partial re-find #"\.png|\.gif$")))]
+    (sh "cp " f " " target-dir)))
 
 
 (defn generate-static-site [remote-host
@@ -125,11 +131,25 @@
                           css))))
 
 
+(defn sync-tmp-files-to-remote! [key-location
+                                 target-dir
+                                 remote-host
+                                 remote-dir]
+  ;; FIXME: Make less hack-y:
+  (spit "/tmp/sync-script"
+        (format "rsync --rsh 'ssh -i %s' -vurt %s/* root@%s:%s"
+                key-location
+                target-dir
+                remote-host
+                remote-dir))
+  (sh "bash /tmp/sync-script"))
+
+
 ;; Example, current workflow.
 #_(let [home (env :home)
         remote-host "zerolib.com"
         site-source-dir (str home "/Dropbox/org/sites/" remote-host)
-        target-dir "/tmp/organa-tmp"
+        target-dir "/tmp/organa-tmp2"
         key-location (str home "/.ssh/do_id_rsa")]
     (generate-static-site remote-host
                           site-source-dir
@@ -140,4 +160,3 @@
                                  remote-host
                                  (str "/www/" remote-host))
     #_(sh "open http://" remote-host))
-

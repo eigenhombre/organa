@@ -34,24 +34,27 @@
       first))
 
 
-(defn articles-nav-bar [site-source-dir available-files]
+(defn articles-nav-bar [file-name site-source-dir available-files]
   {:tag :div
    :content
-   (list* {:tag :p
+   `(~@(when (not= file-name "index")
+         [{:tag :p
            :content [{:tag :a
                       :attrs {:href "index.html"}
                       :content ["Home"]}]}
-          {:tag :hr}
-          {:tag :p
-           :content ["Other articles"]}
-          (for [f (remove #{"index"} available-files)]
-            {:tag :p
-             :content [{:tag :a
-                        :attrs {:href (str f ".html")}
-                        :content [(title-for-org-file site-source-dir f)]}]}))})
+          {:tag :hr}])
+     {:tag :p
+      :content ["Articles"]}
+     ~@(for [f (->> available-files
+                    (remove #{"index"})
+                    (remove #{file-name}))]
+         {:tag :p
+          :content [{:tag :a
+                     :attrs {:href (str f ".html")}
+                     :content [(title-for-org-file site-source-dir f)]}]}))})
 
 
-(defn transform-enlive [site-source-dir available-files css enl]
+(defn transform-enlive [file-name site-source-dir available-files css enl]
   (html/at enl
            [:head :style] nil
            [:head :script] nil
@@ -63,27 +66,31 @@
            [:head] (html/append [{:tag :style
                                   :content css}])
            [:div#content] (html/append
-                           (articles-nav-bar site-source-dir
+                           (articles-nav-bar file-name
+                                             site-source-dir
                                              available-files)
                            (footer))))
 
 
-(defn process-org-html [site-source-dir available-files css txt]
+(defn process-org-html [file-name site-source-dir available-files css txt]
   (->> txt
        html/html-snippet  ;; convert to Enlive
        (drop 3)           ;; remove useless stuff at top
-       (transform-enlive site-source-dir available-files css)
+       (transform-enlive file-name site-source-dir available-files css)
        html/emit*         ;; turn back into html
        (apply str)))
 
 
-(defn process-html-file! [site-source-dir target-dir file-name
-                          available-files extra-css]
-  (->> file-name
+(defn process-html-file! [site-source-dir
+                          target-dir
+                          file-name
+                          available-files
+                          extra-css]
+  (->> (str file-name ".html")
        (str site-source-dir "/")
        slurp
-       (process-org-html site-source-dir available-files extra-css)
-       (spit (str target-dir "/" file-name))))
+       (process-org-html file-name site-source-dir available-files extra-css)
+       (spit (str target-dir "/" file-name ".html"))))
 
 
 (defn available-org-files [site-source-dir]
@@ -126,7 +133,7 @@
     (doseq [f org-files]
       (process-html-file! site-source-dir
                           target-dir
-                          (str f ".html")
+                          f
                           org-files
                           css))))
 

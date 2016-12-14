@@ -13,13 +13,15 @@
 (defn ^:private year [] (+ 1900 (.getYear (java.util.Date.))))
 
 
-(defn ^:private copyright-str [yr] (format "© %d John Jacobsen." yr))
-
-
 (defn ^:private footer []
   {:tag :p
    :attrs {:class "footer"}
-   :content [(copyright-str (year))]})
+   :content [(format "© %d John Jacobsen." (year))
+             " Made with "
+             {:tag :a
+              :attrs {:href "https://github.com/eigenhombre/organa"}
+              :content ["Organa"]}
+             "."]})
 
 
 (defn transform-enlive [available-files css enl]
@@ -106,17 +108,17 @@
 
 
 (defn generate-static-site [remote-host
-                            source-site-dir
+                            site-source-dir
                             target-dir]
   (let [css (->> "index.garden"
-                 (str source-site-dir "/")
+                 (str site-source-dir "/")
                  load-file
                  to-css)
-        org-files (available-org-files source-site-dir)]
+        org-files (available-org-files site-source-dir)]
     (ensure-target-dir-exists! target-dir)
-    (stage-site-image-files! source-site-dir target-dir)
+    (stage-site-image-files! site-source-dir target-dir)
     (doseq [f org-files]
-      (process-html-file! source-site-dir
+      (process-html-file! site-source-dir
                           target-dir
                           (str f ".html")
                           org-files
@@ -126,11 +128,11 @@
 ;; Example, current workflow.
 #_(let [home (env :home)
         remote-host "zerolib.com"
-        source-site-dir (str home "/Dropbox/org/sites/" remote-host)
+        site-source-dir (str home "/Dropbox/org/sites/" remote-host)
         target-dir "/tmp/organa-tmp"
         key-location (str home "/.ssh/do_id_rsa")]
     (generate-static-site remote-host
-                          source-site-dir
+                          site-source-dir
                           target-dir)
     (sh "open file://"  target-dir "/index.html")
     #_(sync-tmp-files-to-remote! key-location

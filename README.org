@@ -18,7 +18,7 @@ Do not use this yet.  But, for the curious, my current workflow is:
 
 1. uncomment the final form in the =organa.core= namespace,
    =src/organa/core.clj=
-2. make edits to Org files in the source directory =local-site-dir=
+2. make edits to Org files in the source directory =site-source-dir=
 3. convert changed file(s) to HTML using =\C-c e hh=
 4. reevaluate the =organa.core= namespace, causing the site to be generated and
    synced to a Digital Ocean instance.

@@ -1,6 +1,8 @@
 (ns organa.core
   (:require [net.cgrand.enlive-html :as html]
             [environ.core :refer [env]]
+            [organa.dates :refer [article-date-format date-for-org-file]]
+            [clj-time.format :as tformat]
             [garden.core :refer [css] :rename {css to-css}]))
 
 
@@ -45,16 +47,22 @@
           {:tag :hr}])
      {:tag :p
       :content ["Articles"]}
-     ~@(for [f (->> available-files
-                    (remove #{"index"})
-                    (remove #{file-name}))]
+     ~@(for [{:keys [file-name date]}
+             (->> available-files
+                  (remove (comp #{"index"} :file-name))
+                  (remove (comp #{file-name} :file-name)))]
          {:tag :p
           :content [{:tag :a
-                     :attrs {:href (str f ".html")}
-                     :content [(title-for-org-file site-source-dir f)]}]}))})
+                     :attrs {:href (str file-name ".html")}
+                     :content [(title-for-org-file site-source-dir file-name)]}
+                    " "
+                    {:tag :span
+                     :attrs {:class "article-date"}
+                     :content [(tformat/unparse
+                                article-date-format date)]}]}))})
 
 
-(defn transform-enlive [file-name site-source-dir available-files css enl]
+(defn transform-enlive [file-name date site-source-dir available-files css enl]
   (html/at enl
            [:head :style] nil
            [:head :script] nil
@@ -65,6 +73,12 @@
            [:head] remove-newlines
            [:head] (html/append [{:tag :style
                                   :content css}])
+           [:div#content :h1.title]
+           (html/after
+               [{:tag :p
+                 :attrs {:class "article-header-date"}
+                 :content `[~@(when-not (= file-name "index")
+                                (tformat/unparse article-date-format date))]}])
            [:div#content] (html/append
                            (articles-nav-bar file-name
                                              site-source-dir
@@ -72,24 +86,32 @@
                            (footer))))
 
 
-(defn process-org-html [file-name site-source-dir available-files css txt]
+(defn process-org-html [file-name
+                        date
+                        site-source-dir
+                        available-files
+                        css
+                        txt]
   (->> txt
        html/html-snippet  ;; convert to Enlive
        (drop 3)           ;; remove useless stuff at top
-       (transform-enlive file-name site-source-dir available-files css)
+       (transform-enlive file-name date site-source-dir available-files css)
        html/emit*         ;; turn back into html
        (apply str)))
 
 
 (defn process-html-file! [site-source-dir
                           target-dir
-                          file-name
+                          {:keys [file-name date]}
                           available-files
                           extra-css]
   (->> (str file-name ".html")
        (str site-source-dir "/")
        slurp
-       (process-org-html file-name site-source-dir available-files extra-css)
+       (process-org-html file-name
+                         date
+                         site-source-dir
+                         available-files extra-css)
        (spit (str target-dir "/" file-name ".html"))))
 
 
@@ -127,7 +149,11 @@
                  (str site-source-dir "/")
                  load-file
                  to-css)
-        org-files (available-org-files site-source-dir)]
+        org-files (->> (for [f (available-org-files site-source-dir)]
+                         {:file-name f
+                          :date (date-for-org-file site-source-dir f)})
+                       (sort-by :date)
+                       reverse)]
     (ensure-target-dir-exists! target-dir)
     (stage-site-image-files! site-source-dir target-dir)
     (doseq [f org-files]

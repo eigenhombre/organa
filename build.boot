@@ -1,4 +1,5 @@
-(set-env! :dependencies '[[environ "1.1.0"]
+(set-env! :dependencies '[[clj-time "0.12.2"]
+                          [environ "1.1.0"]
                           [enlive "1.1.6"]
                           [garden "1.3.2"]]
           :source-paths #{"src"}

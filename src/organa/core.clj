@@ -1,9 +1,13 @@
 (ns organa.core
-  (:require [net.cgrand.enlive-html :as html]
+  (:require [clj-time.format :as tformat]
             [environ.core :refer [env]]
-            [organa.dates :refer [article-date-format date-for-org-file]]
-            [clj-time.format :as tformat]
-            [garden.core :refer [css] :rename {css to-css}]))
+            [watchtower.core :refer [watcher rate stop-watch on-add
+                                     on-modify on-delete file-filter
+                                     extensions]]
+            [garden.core :refer [css] :rename {css to-css}]
+            [net.cgrand.enlive-html :as html]
+            [mount.core :refer [defstate] :as mount]
+            [organa.dates :refer [article-date-format date-for-org-file]]))
 
 
 ;; Org / HTML manipulation .................................
@@ -39,14 +43,14 @@
 (defn articles-nav-bar [file-name site-source-dir available-files]
   {:tag :div
    :content
-   `(~@(when (not= file-name "index")
-         [{:tag :p
+   `({:tag :h2
+      :content "More"}
+     ~@(when (not= file-name "index")
+         [{:tag :hr}
+          {:tag :p
            :content [{:tag :a
                       :attrs {:href "index.html"}
-                      :content ["Home"]}]}
-          {:tag :hr}])
-     {:tag :p
-      :content ["Articles"]}
+                      :content ["Home"]}]}])
      ~@(for [{:keys [file-name date]}
              (->> available-files
                   (remove (comp #{"index"} :file-name))
@@ -78,7 +82,11 @@
                [{:tag :p
                  :attrs {:class "article-header-date"}
                  :content `[~@(when-not (= file-name "index")
-                                (tformat/unparse article-date-format date))]}])
+                                [(tformat/unparse article-date-format date)
+                                 {:tag :p
+                                  :content [{:tag :a
+                                             :attrs {:href "index.html"}
+                                             :content ["Home"]}]}])]}])
            [:div#content] (html/append
                            (articles-nav-bar file-name
                                              site-source-dir
@@ -178,18 +186,41 @@
   (sh "bash /tmp/sync-script"))
 
 
-;; Example, current workflow.
-#_(let [home (env :home)
-        remote-host "zerolib.com"
-        site-source-dir (str home "/Dropbox/org/sites/" remote-host)
-        target-dir "/tmp/organa-tmp2"
-        key-location (str home "/.ssh/do_id_rsa")]
-    (generate-static-site remote-host
-                          site-source-dir
-                          target-dir)
-    (sh "open file://"  target-dir "/index.html")
-    #_(sync-tmp-files-to-remote! key-location
-                                 target-dir
-                                 remote-host
-                                 (str "/www/" remote-host))
-    #_(sh "open http://" remote-host))
+(def home-dir (env :home))
+(def remote-host "zerolib.com")
+(def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
+(def target-dir "/tmp/organa")
+(def key-location (str home-dir "/.ssh/do_id_rsa"))
+
+
+(defn update-site []
+  (generate-static-site remote-host
+                        site-source-dir
+                        target-dir))
+
+
+(defstate watcher-state
+  :start (let [update-fn (fn [f]
+                           (println "added" f)
+                           (update-site))]
+           (update-site)
+           (watcher [site-source-dir]
+             (file-filter (extensions :html))
+             (rate 1000)
+             (on-add update-fn)
+             (on-delete update-fn)
+             (on-modify update-fn)))
+  :stop (stop-watch))
+
+
+(mount/stop)
+(mount/start)
+
+
+(comment
+  (sh "open file://"  target-dir "/index.html")
+  (sync-tmp-files-to-remote! key-location
+                             target-dir
+                             remote-host
+                             (str "/www/" remote-host))
+  (sh "open http://" remote-host))

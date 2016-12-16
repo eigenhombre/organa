@@ -6,23 +6,66 @@
 * Look, ma, no parser!
 
 This project records my recent experiments with publishing static
-sites using Org Mode.  See https://github.com/eigenhombre/blorg for a
-previous example.
+sites using Org Mode.  See https://github.com/eigenhombre/blorg for my
+previous attempt.
 
-In the past I've written a few Org Mode parsers, but HTML is far
-easier to parse in Clojure using Hiccup or Enlive.  The current code
-relies on exporting to HTML first, parsing that, and modifying the
-parse tree as needed.
+In the past I've written a few (incomplete) Org Mode parsers, but HTML
+is far easier to manipulate in Clojure using Hiccup or Enlive.  The
+current code relies on exporting to HTML first, parsing that, and
+modifying the parse tree as needed.
 
+* Goals
+
+- To provide a Jekyll-like (or better) workflow (edit markup files,
+  have them automatically processed into HTML),
+- using Org Mode as the markup language,
+- supporting all of
+  - my art- and image-heavy pages and image galleries;
+  - my math- and code-heavy software posts;
+  - my narrative-heavy South Pole blog posts.
+
+* Workflow
 Do not use this yet.  But, for the curious, my current workflow is:
 
-1. uncomment the final form in the =organa.core= namespace,
-   =src/organa/core.clj=
+1. evaluate the =core= namespace in the REPL to create the site and
+   start the file watcher
 2. make edits to Org files in the source directory =site-source-dir=
-3. convert changed file(s) to HTML using =\C-c e hh=
-4. reevaluate the =organa.core= namespace, causing the site to be generated and
-   synced to a Digital Ocean instance.
-5. Go to 2.
+   (or add new =.org= files there)
+3. convert changed/added =.org= file(s) to HTML using =\C-c e hh=
+4. if needed, to restart the site-making code, re-evaluate the
+   namespace after changing Clojure code /per se/
+5. use the commented-out forms at the bottom of the =core= namespace
+   for syncing to the remote Web site.
+6. Go to 2.
+
+* Motivation
+** Why Org Mode?
+
+I really like writing in [[http://orgmode.org/][Org Mode]] (a text editing / outlining / To
+Do-list processing / scheduling / literate programming / ... mode for
+[[http://www.gnu.org/software/emacs/][Emacs]]).  The outliner gets out of my way most of the time and lets me
+move ideas around while they are being formed, and lets me hide the
+portions that I'm not focusing on at any given time.  I can export to
+a fairly nice looking PDF document in a few keystrokes.  I also use
+the literate programming and LaTeX / math support from time to time.
+
+** Why not /just/ Org Mode?
+
+*I.e., why a Clojure app?*  I find the export tools available for Org
+Mode are not quite powerful (or fast) enough for a large blog.  I got
+pretty far trying to get the export features to suit, but not far
+enough -- generation of a large site took too long, and customization
+was too unweildy.  In general I much prefer developing software in
+[[http://clojure.org][Clojure]] than in Emacs Lisp (though admittedly I'm less experienced
+with the latter).
+
+** Why not Jekyll?
+
+I used Jekyll for a few years and was somewhat satisfied by it.  But
+it doesn't support Org Mode, and I am simply not that fond of Ruby and
+its related ecosystems.  Also I have a number of customizations
+relating to handling images that I'm unlikely to easily get working
+with Jekyll.
 
 
 * License

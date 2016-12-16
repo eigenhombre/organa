@@ -172,27 +172,13 @@
                           css))))
 
 
-(defn sync-tmp-files-to-remote! [key-location
-                                 target-dir
-                                 remote-host
-                                 remote-dir]
-  ;; FIXME: Make less hack-y:
-  (spit "/tmp/sync-script"
-        (format "rsync --rsh 'ssh -i %s' -vurt %s/* root@%s:%s"
-                key-location
-                target-dir
-                remote-host
-                remote-dir))
-  (sh "bash /tmp/sync-script"))
-
-
 (def home-dir (env :home))
+
+
 (def remote-host "zerolib.com")
 (def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
 (def target-dir "/tmp/organa")
 (def key-location (str home-dir "/.ssh/do_id_rsa"))
-
-
 (defn update-site []
   (generate-static-site remote-host
                         site-source-dir
@@ -215,6 +201,20 @@
 
 (mount/stop)
 (mount/start)
+
+
+(defn sync-tmp-files-to-remote! [key-location
+                                 target-dir
+                                 remote-host
+                                 remote-dir]
+  ;; FIXME: Make less hack-y:
+  (spit "/tmp/sync-script"
+        (format "rsync --rsh 'ssh -i %s' -vurt %s/* root@%s:%s"
+                key-location
+                target-dir
+                remote-host
+                remote-dir))
+  (sh "bash /tmp/sync-script"))
 
 
 (comment

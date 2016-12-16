@@ -27,16 +27,16 @@ modifying the parse tree as needed.
 * Workflow
 Do not use this yet.  But, for the curious, my current workflow is:
 
-1. evaluate the =core= namespace in the REPL to create the site and
-   start the file watcher
-2. make edits to Org files in the source directory =site-source-dir=
-   (or add new =.org= files there)
-3. convert changed/added =.org= file(s) to HTML using =\C-c e hh=
-4. if needed, to restart the site-making code, re-evaluate the
-   namespace after changing Clojure code /per se/
-5. use the commented-out forms at the bottom of the =core= namespace
-   for syncing to the remote Web site.
-6. Go to 2.
+- Evaluate the =core= namespace in the REPL to create the site and
+  start the file watcher.
+- Make edits to Org files in the source directory =site-source-dir=
+  (or add new =.org= files there).
+- Convert changed/added =.org= file(s) to HTML using =\C-c e hh=,
+  causing the file watcher to reprocess the site.
+- If needed, to restart the site-making code, re-evaluate the
+  namespace after changing Clojure code /per se/.
+- To "publish," use the commented-out forms at the bottom of the
+  =core= namespace for syncing to the remote Web site.
 
 * Motivation
 ** Why Org Mode?

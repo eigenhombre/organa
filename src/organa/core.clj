@@ -40,6 +40,22 @@
       first))
 
 
+(defn tags-for-org-file [site-source-dir basename]
+  (-> (format "%s/%s.html" site-source-dir basename)
+      slurp
+      html/html-snippet
+      (html/select [:span.tag])
+      first
+      :content
+      first
+      :content))
+
+
+;; FIXME: this is hack-y; encode whether a page is static or not in
+;; .org file?
+(def ^:private static-pages #{"index" "about"})
+
+
 (defn articles-nav-bar [file-name site-source-dir available-files]
   {:tag :div
    :content
@@ -51,19 +67,28 @@
            :content [{:tag :a
                       :attrs {:href "index.html"}
                       :content ["Home"]}]}])
-     ~@(for [{:keys [file-name date]}
+     ~@(for [{:keys [file-name date tags]}
              (->> available-files
-                  (remove (comp #{"index"} :file-name))
+                  (remove (comp static-pages :file-name))
                   (remove (comp #{file-name} :file-name)))]
          {:tag :p
-          :content [{:tag :a
-                     :attrs {:href (str file-name ".html")}
-                     :content [(title-for-org-file site-source-dir file-name)]}
-                    " "
-                    {:tag :span
-                     :attrs {:class "article-date"}
-                     :content [(tformat/unparse
-                                article-date-format date)]}]}))})
+          :content
+          (concat
+           [{:tag :a
+             :attrs {:href (str file-name ".html")}
+             :content [(title-for-org-file site-source-dir file-name)]}]
+           " "
+           (interleave
+            (repeat " ")
+            (for [t tags]
+              {:tag :span
+               :attrs {:class (str t "-tag")}
+               :content [t]}))
+           [" "
+            {:tag :span
+             :attrs {:class "article-date"}
+             :content [(tformat/unparse
+                        article-date-format date)]}])}))})
 
 
 (defn transform-enlive [file-name date site-source-dir available-files css enl]
@@ -146,7 +171,7 @@
                  clojure.java.io/file
                  file-seq
                  (map #(.toString %))
-                 (filter (partial re-find #"\.png|\.gif$")))]
+                 (filter (partial re-find #"\.png|\.gif$|\.jpg")))]
     (sh "cp " f " " target-dir)))
 
 
@@ -159,7 +184,9 @@
                  to-css)
         org-files (->> (for [f (available-org-files site-source-dir)]
                          {:file-name f
-                          :date (date-for-org-file site-source-dir f)})
+                          :date (date-for-org-file site-source-dir f)
+                          ;; FIXME: don't re-parse files...
+                          :tags (tags-for-org-file site-source-dir f)})
                        (sort-by :date)
                        reverse)]
     (ensure-target-dir-exists! target-dir)

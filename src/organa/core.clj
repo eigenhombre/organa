@@ -66,7 +66,8 @@
           {:tag :p
            :content [{:tag :a
                       :attrs {:href "index.html"}
-                      :content ["Home"]}]}])
+                      :content [{:tag :em
+                                 :content ["Home"]}]}]}])
      ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove (comp static-pages :file-name))
@@ -96,6 +97,16 @@
            [:head :style] nil
            [:head :script] nil
            [:div#postamble] nil
+           ;; Remove dummy header lines containting tags, in first
+           ;; sections:
+           [:h2#sec-1] (fn [thing]
+                         (when-not
+                             (-> thing
+                                 :content
+                                 second
+                                 :attrs
+                                 :class
+                                 (= "tag"))))
            [:body] remove-newlines
            [:ul] remove-newlines
            [:html] remove-newlines
@@ -175,6 +186,15 @@
     (sh "cp " f " " target-dir)))
 
 
+(defn stage-site-static-files! [site-source-dir target-dir]
+  (doseq [f (->> (str site-source-dir "/static")
+                 clojure.java.io/file
+                 file-seq
+                 (remove #(.isDirectory %))
+                 (map #(.toString %)))]
+    (sh "cp " f " " target-dir)))
+
+
 (defn generate-static-site [remote-host
                             site-source-dir
                             target-dir]
@@ -191,6 +211,7 @@
                        reverse)]
     (ensure-target-dir-exists! target-dir)
     (stage-site-image-files! site-source-dir target-dir)
+    (stage-site-static-files! site-source-dir target-dir)
     (doseq [f org-files]
       (process-html-file! site-source-dir
                           target-dir

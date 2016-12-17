@@ -25,12 +25,22 @@ modifying the parse tree as needed.
   - my narrative-heavy South Pole blog posts.
 
 * Workflow
-Do not use this yet.  But, for the curious, my current workflow is:
+If I were you, I wouldn't use this yet.  But, for the curious, my
+current workflow is:
 
 - Evaluate the =core= namespace in the REPL to create the site and
   start the file watcher.
 - Make edits to Org files in the source directory =site-source-dir=
   (or add new =.org= files there).
+  - To change the CSS for the site, edit =index.garden=; source will
+    be interpreted by the =garden= Clojure library and included in
+    every page.
+  - To tag a post (for showing the post type in the navigation section
+    of each page), add an empty section with the relevant tag(s),
+    e.g.:
+#+BEGIN_SRC
+   * :mytag:othertag:
+#+END_SRC
 - Convert changed/added =.org= file(s) to HTML using =\C-c e hh=,
   causing the file watcher to reprocess the site.
 - If needed, to restart the site-making code, re-evaluate the

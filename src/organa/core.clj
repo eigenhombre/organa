@@ -82,7 +82,7 @@
             (repeat " ")
             (for [t tags]
               {:tag :span
-               :attrs {:class (str t "-tag")}
+               :attrs {:class (str t "-tag tag")}
                :content [t]}))
            [" "
             {:tag :span

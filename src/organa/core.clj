@@ -41,14 +41,13 @@
 
 
 (defn tags-for-org-file [site-source-dir basename]
-  (-> (format "%s/%s.html" site-source-dir basename)
-      slurp
-      html/html-snippet
-      (html/select [:span.tag])
-      first
-      :content
-      first
-      :content))
+  (mapcat :content
+          (-> (format "%s/%s.html" site-source-dir basename)
+              slurp
+              html/html-snippet
+              (html/select [:span.tag])
+              first
+              :content)))
 
 
 ;; FIXME: this is hack-y; encode whether a page is static or not in
@@ -100,13 +99,13 @@
            ;; Remove dummy header lines containting tags, in first
            ;; sections:
            [:h2#sec-1] (fn [thing]
-                         (when-not
-                             (-> thing
-                                 :content
-                                 second
-                                 :attrs
-                                 :class
-                                 (= "tag"))))
+                         (when-not (-> thing
+                                       :content
+                                       second
+                                       :attrs
+                                       :class
+                                       (= "tag"))
+                           thing))
            [:body] remove-newlines
            [:ul] remove-newlines
            [:html] remove-newlines

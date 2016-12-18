@@ -212,11 +212,14 @@
     (stage-site-image-files! site-source-dir target-dir)
     (stage-site-static-files! site-source-dir target-dir)
     (doseq [f org-files]
-      (process-html-file! site-source-dir
-                          target-dir
-                          f
-                          org-files
-                          css))))
+      (try
+        (process-html-file! site-source-dir
+                            target-dir
+                            f
+                            org-files
+                            css)
+        (catch Throwable t
+          (println t))))))
 
 
 (def home-dir (env :home))
@@ -234,7 +237,7 @@
 
 (defstate watcher-state
   :start (let [update-fn (fn [f]
-                           (println "added" f)
+                           (println "added" (.getName f))
                            (update-site))]
            (update-site)
            (watcher [site-source-dir]

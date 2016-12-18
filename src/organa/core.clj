@@ -237,11 +237,12 @@
 
 (defstate watcher-state
   :start (let [update-fn (fn [f]
-                           (println "added" (.getName f))
+                           (println "added " f)
                            (update-site))]
            (update-site)
+           (println "starting watcher...")
            (watcher [site-source-dir]
-             (file-filter (extensions :html))
+             (file-filter (extensions :html :garden :org))
              (rate 1000)
              (on-add update-fn)
              (on-delete update-fn)

@@ -242,7 +242,7 @@
            (update-site)
            (println "starting watcher...")
            (watcher [site-source-dir]
-             (file-filter (extensions :html :garden :org))
+             (file-filter (extensions :html :garden))
              (rate 1000)
              (on-add update-fn)
              (on-delete update-fn)

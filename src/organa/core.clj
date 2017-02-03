@@ -211,15 +211,23 @@
     (ensure-target-dir-exists! target-dir)
     (stage-site-image-files! site-source-dir target-dir)
     (stage-site-static-files! site-source-dir target-dir)
-    (doseq [f org-files]
-      (try
-        (process-html-file! site-source-dir
-                            target-dir
-                            f
-                            org-files
-                            css)
-        (catch Throwable t
-          (println t))))))
+    (let [futures (doall (for [f org-files]
+                           (future
+                             (.write *out* (str "Processing "
+                                                (:file-name f)
+                                                "\n"))
+                             (process-html-file! site-source-dir
+                                                 target-dir
+                                                 f
+                                                 org-files
+                                                 css))))]
+      (println "Waiting for threads to finish...")
+      (doseq [fu futures]
+        (try
+          @fu
+          (catch Throwable t
+            (println t))))
+      (println "OK"))))
 
 
 (def home-dir (env :home))

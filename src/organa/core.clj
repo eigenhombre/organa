@@ -189,9 +189,9 @@
   (doseq [f (->> (str site-source-dir "/static")
                  clojure.java.io/file
                  file-seq
-                 (remove #(.isDirectory %))
+                 (remove (comp #(.startsWith % ".") str))
                  (map #(.toString %)))]
-    (sh "cp " f " " target-dir)))
+    (sh "cp -rp " f " " target-dir)))
 
 
 (defn generate-static-site [remote-host

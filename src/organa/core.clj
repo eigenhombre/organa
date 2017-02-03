@@ -181,7 +181,7 @@
                  clojure.java.io/file
                  file-seq
                  (map #(.toString %))
-                 (filter (partial re-find #"\.png|\.gif$|\.jpg")))]
+                 (filter (partial re-find #"\.png|\.gif$|\.jpg|\.JPG")))]
     (sh "cp " f " " target-dir)))
 
 

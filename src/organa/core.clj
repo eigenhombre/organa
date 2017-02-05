@@ -7,7 +7,8 @@
             [garden.core :refer [css] :rename {css to-css}]
             [net.cgrand.enlive-html :as html]
             [mount.core :refer [defstate] :as mount]
-            [organa.dates :refer [article-date-format date-for-org-file]]))
+            [organa.dates :refer [article-date-format date-for-org-file]]
+            [organa.egg :refer [easter-egg]]))
 
 
 ;; Org / HTML manipulation .................................
@@ -59,7 +60,7 @@
   {:tag :div
    :content
    `({:tag :h2
-      :content "More"}
+      :content "Posts"}
      ~@(when (not= file-name "index")
          [{:tag :hr}
           {:tag :p
@@ -110,18 +111,22 @@
            [:ul] remove-newlines
            [:html] remove-newlines
            [:head] remove-newlines
-           [:head] (html/append [{:tag :style
-                                  :content css}])
+           [:head] (html/append
+                    [(html/html-snippet easter-egg)
+                     {:tag :style
+                      :content css}])
            [:div#content :h1.title]
            (html/after
                [{:tag :p
                  :attrs {:class "article-header-date"}
-                 :content `[~@(when-not (= file-name "index")
-                                [(tformat/unparse article-date-format date)
-                                 {:tag :p
-                                  :content [{:tag :a
-                                             :attrs {:href "index.html"}
-                                             :content ["Home"]}]}])]}])
+                 :content
+                 `[~@(when-not (= file-name "index")
+                       [(tformat/unparse article-date-format date)
+                        {:tag :p
+                         :content [{:tag :a
+                                    :attrs {:href "index.html"}
+                                    :content [{:tag :strong
+                                               :content ["Home"]}]}]}])]}])
            [:div#content] (html/append
                            (articles-nav-bar file-name
                                              site-source-dir

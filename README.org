@@ -5,8 +5,8 @@
 
 * Look, ma, no parser!
 
-This project records my recent experiments with publishing static
-sites using Org Mode.  See https://github.com/eigenhombre/blorg for my
+This project records my recent efforts towards publishing static
+sites using [[http://orgmode.org/][Emacs Org Mode]].  See https://github.com/eigenhombre/blorg for my
 previous attempt.
 
 In the past I've written a few (incomplete) Org Mode parsers, but HTML
@@ -44,23 +44,25 @@ current workflow is:
 #+BEGIN_SRC
    * :mytag:othertag:
 #+END_SRC
-- Convert changed/added =.org= file(s) to HTML using =\C-c e hh=,
+- Save changed/added =.org= file(s) to HTML using =\C-c e hh=,
   causing the file watcher to reprocess the site.
 - If needed, to restart the site-making code, re-evaluate the
   namespace after changing Clojure code /per se/.
 - To "publish," use the commented-out forms at the bottom of the
-  =core= namespace for syncing to the remote Web site.
+  =core= namespace to =rsync= the code to the remote Web site.
 
 * Motivation
 ** Why Org Mode?
 
-I really like writing in [[http://orgmode.org/][Org Mode]] (a text editing / outlining / To
-Do-list processing / scheduling / literate programming / ... mode for
-[[http://www.gnu.org/software/emacs/][Emacs]]).  The outliner gets out of my way most of the time and lets me
-move ideas around while they are being formed, and lets me hide the
-portions that I'm not focusing on at any given time.  I can export to
-a fairly nice looking PDF document in a few keystrokes.  I also use
-the literate programming and LaTeX / math support from time to time.
+I really like writing in [[http://orgmode.org/][Org Mode]] (a text
+editing / outlining / To Do-list processing / scheduling / literate
+programming / ... mode for
+[[http://www.gnu.org/software/emacs/][Emacs]]).  The outliner gets out
+of my way most of the time and lets me move ideas around while they
+are being formed, and lets me hide the portions that I'm not focusing
+on at any given time.  I can export to a fairly nice looking PDF
+document in a few keystrokes.  I also use the literate programming and
+LaTeX / math support from time to time.
 
 ** Why not /just/ Org Mode?
 
@@ -83,7 +85,7 @@ with Jekyll.
 
 * License
 
-Copyright © 2016, John Jacobsen. MIT License.
+Copyright © 2016-2017, John Jacobsen. MIT License.
 
 * Disclaimer
 

@@ -68,7 +68,7 @@
                       :attrs {:href "index.html"}
                       :content [{:tag :em
                                  :content ["Home"]}]}]}])
-     ~@(for [{:keys [file-name date tags]}
+          ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove (comp static-pages :file-name))
                   (remove (comp #{file-name} :file-name)))]
@@ -89,7 +89,13 @@
             {:tag :span
              :attrs {:class "article-date"}
              :content [(tformat/unparse
-                        article-date-format date)]}])}))})
+                        article-date-format date)]}])})
+     ~@(when (not= file-name "index")
+         [{:tag :p
+           :content [{:tag :a
+                      :attrs {:href "index.html"}
+                      :content [{:tag :em
+                                 :content ["Home"]}]}]}]))})
 
 
 (defn transform-enlive [file-name date site-source-dir available-files css enl]
@@ -191,12 +197,13 @@
 
 
 (defn stage-site-static-files! [site-source-dir target-dir]
+  (println "Syncing files in static directory...")
   (doseq [f (->> (str site-source-dir "/static")
                  clojure.java.io/file
                  file-seq
                  (remove (comp #(.startsWith % ".") str))
                  (map #(.toString %)))]
-    (sh "cp -rp " f " " target-dir)))
+    (sh "cp -rp " f " " target-dir "/static")))
 
 
 (defn generate-static-site [remote-host

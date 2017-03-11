@@ -1,14 +1,15 @@
 (ns organa.core
   (:require [clj-time.format :as tformat]
             [environ.core :refer [env]]
+            [garden.core :refer [css] :rename {css to-css}]
+            [mount.core :refer [defstate] :as mount]
+            [net.cgrand.enlive-html :as html]
+            [organa.dates :refer [article-date-format date-for-org-file]]
+            [organa.html :refer :all]
+            [organa.egg :refer [easter-egg]]
             [watchtower.core :refer [watcher rate stop-watch on-add
                                      on-modify on-delete file-filter
-                                     extensions]]
-            [garden.core :refer [css] :rename {css to-css}]
-            [net.cgrand.enlive-html :as html]
-            [mount.core :refer [defstate] :as mount]
-            [organa.dates :refer [article-date-format date-for-org-file]]
-            [organa.egg :refer [easter-egg]]))
+                                     extensions]]))
 
 
 ;; Org / HTML manipulation .................................
@@ -21,14 +22,11 @@
 
 
 (defn ^:private footer []
-  {:tag :p
-   :attrs {:class "footer"}
-   :content [(format "© %d John Jacobsen." (year))
-             " Made with "
-             {:tag :a
-              :attrs {:href "https://github.com/eigenhombre/organa"}
-              :content ["Organa"]}
-             "."]})
+  (p {:class "footer"}
+     [(format "© %d John Jacobsen." (year))
+      " Made with "
+      (a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
+      "."]))
 
 
 (defn title-for-org-file [site-source-dir basename]
@@ -56,46 +54,67 @@
 (def ^:private static-pages #{"index" "about"})
 
 
-(defn articles-nav-bar [file-name site-source-dir available-files]
-  {:tag :div
-   :content
-   `({:tag :h2
-      :content "Posts"}
+(defn tag-markup [tags]
+  (interleave
+   (repeat " ")
+   (for [t tags]
+     (span {:class (str t "-tag tag")} [t]))))
+
+
+(defn articles-nav-section [file-name site-source-dir available-files]
+  (div
+   `({:tag :a
+      :attrs {:name "allposts"}}
+     {:tag :h2
+      :attrs {:class "allposts"}
+      :content "All Posts"}
      ~@(when (not= file-name "index")
-         [{:tag :hr}
-          {:tag :p
-           :content [{:tag :a
-                      :attrs {:href "index.html"}
-                      :content [{:tag :em
-                                 :content ["Home"]}]}]}])
-          ~@(for [{:keys [file-name date tags]}
+         [(hr)
+          (p [(a {:href "index.html"} [(em ["Home"])])])])
+     ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove (comp static-pages :file-name))
                   (remove (comp #{file-name} :file-name)))]
-         {:tag :p
-          :content
+         (p
           (concat
-           [{:tag :a
-             :attrs {:href (str file-name ".html")}
-             :content [(title-for-org-file site-source-dir file-name)]}]
+           [(a {:href (str file-name ".html")}
+               [(title-for-org-file site-source-dir file-name)])]
            " "
-           (interleave
-            (repeat " ")
-            (for [t tags]
-              {:tag :span
-               :attrs {:class (str t "-tag tag")}
-               :content [t]}))
+           (tag-markup tags)
            [" "
-            {:tag :span
-             :attrs {:class "article-date"}
-             :content [(tformat/unparse
-                        article-date-format date)]}])})
+            (span {:class "article-date"}
+                  [(when date (tformat/unparse article-date-format date))])])))
      ~@(when (not= file-name "index")
-         [{:tag :p
-           :content [{:tag :a
-                      :attrs {:href "index.html"}
-                      :content [{:tag :em
-                                 :content ["Home"]}]}]}]))})
+         [(p [(a {:href "index.html"} [(em ["Home"])])])]))))
+
+
+(defn position-of-current-file [file-name available-files]
+  (->> available-files
+       (map-indexed vector)
+       (filter (comp (partial = file-name) :file-name second))
+       ffirst))
+
+
+(defn prev-next-tags [file-name available-files]
+  (let [files (->> available-files
+                   (remove (comp static-pages :file-name))
+                   vec)
+        current-pos (position-of-current-file file-name files)
+        next-post (get files (dec current-pos))
+        prev-post (get files (inc current-pos))]
+    [(when prev-post
+       (p {:class "prev-next-post"}
+          [(span {:class "post-nav-earlier-later"}
+                 ["Earlier post "])
+           (a {:href (str "./" (:file-name prev-post) ".html")}
+              [(:title prev-post)])
+           (span (tag-markup (:tags prev-post)))]))
+     (when next-post
+       [(p {:class "prev-next-post"}
+           [(span {:class "post-nav-earlier-later"} ["Later post "])
+            (a {:href (str "./" (:file-name next-post) ".html")}
+               [(:title next-post)])
+            (span (tag-markup (:tags next-post)))])])]))
 
 
 (defn transform-enlive [file-name date site-source-dir available-files css enl]
@@ -117,26 +136,26 @@
            [:ul] remove-newlines
            [:html] remove-newlines
            [:head] remove-newlines
-           [:head] (html/append
-                    [(html/html-snippet easter-egg)
-                     {:tag :style
-                      :content css}])
+           [:head] (html/append [(html/html-snippet easter-egg)
+                                 (style css)])
            [:div#content :h1.title]
            (html/after
-               [{:tag :p
-                 :attrs {:class "article-header-date"}
-                 :content
-                 `[~@(when-not (= file-name "index")
-                       [(tformat/unparse article-date-format date)
-                        {:tag :p
-                         :content [{:tag :a
-                                    :attrs {:href "index.html"}
-                                    :content [{:tag :strong
-                                               :content ["Home"]}]}]}])]}])
+               `[~@(when-not (static-pages file-name)
+                     (concat
+                      [(p [(span {:class "author"} ["John Jacobsen"])
+                           (br)
+                           (span {:class "article-header-date"}
+                                 [(tformat/unparse article-date-format date)])])
+                       (p [(a {:href "index.html"} [(strong ["Home"])])
+                           " "
+                           (a {:href "#allposts"} ["All Posts"])])]
+                      (prev-next-tags file-name available-files)
+                      [(div {:class "hspace"} [])]))])
            [:div#content] (html/append
-                           (articles-nav-bar file-name
-                                             site-source-dir
-                                             available-files)
+                           (div {:class "hspace"} [])
+                           (articles-nav-section file-name
+                                                 site-source-dir
+                                                 available-files)
                            (footer))))
 
 
@@ -215,14 +234,19 @@
                  to-css)
         org-files (->> (for [f (available-org-files site-source-dir)]
                          {:file-name f
-                          :date (date-for-org-file site-source-dir f)
                           ;; FIXME: don't re-parse files...
+                          :date (date-for-org-file site-source-dir f)
+                          :title (title-for-org-file site-source-dir f)
                           :tags (tags-for-org-file site-source-dir f)})
                        (sort-by :date)
-                       reverse)]
-    (ensure-target-dir-exists! target-dir)
-    (stage-site-image-files! site-source-dir target-dir)
-    (stage-site-static-files! site-source-dir target-dir)
+                       reverse)
+        _ (ensure-target-dir-exists! target-dir)
+
+        image-future
+        (future (stage-site-image-files! site-source-dir target-dir))
+
+        static-future
+        (future (stage-site-static-files! site-source-dir target-dir))]
     (let [futures (doall (for [f org-files]
                            (future
                              (.write *out* (str "Processing "
@@ -234,11 +258,11 @@
                                                  org-files
                                                  css))))]
       (println "Waiting for threads to finish...")
-      (doseq [fu futures]
+      (doseq [fu (concat [static-future image-future] futures)]
         (try
           @fu
           (catch Throwable t
-            (println t))))
+            (.printStackTrace t))))
       (println "OK"))))
 
 

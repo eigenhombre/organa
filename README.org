@@ -3,30 +3,32 @@
 #+ATTR_HTML: :align left
 [[./organa.png]]
 
-* Look, ma, no parser!
+* Introduction
 
-This project records my recent efforts towards publishing static
-sites using [[http://orgmode.org/][Emacs Org Mode]].  See https://github.com/eigenhombre/blorg for my
-previous attempt.
+This project implements a generator for my current website using [[http://orgmode.org/][Emacs
+Org Mode]].  See https://github.com/eigenhombre/blorg for my previous
+attempt.
 
 In the past I've written a few (incomplete) Org Mode parsers, but HTML
 is far easier to manipulate in Clojure using Hiccup or Enlive.  The
-current code relies on exporting to HTML first, parsing that, and
-modifying the parse tree as needed.
+current code relies on exporting Org Mode to HTML first, parsing that,
+and modifying the parse tree as needed.
 
 * Goals
 
-- To provide a Jekyll-like (or better) workflow (edit markup files,
-  have them automatically processed into HTML),
-- using Org Mode as the markup language,
+- To provide a Jekyll-like (or better) workflow: edit markup files,
+  have them automatically processed into HTML...
+- using Org Mode as the markup language...
 - supporting all of
   - my art- and image-heavy pages and image galleries;
   - my math- and code-heavy software posts;
   - my narrative-heavy South Pole blog posts.
 
 * Workflow
-If I were you, I wouldn't use this yet.  But, for the curious, my
-current workflow is:
+If I were you, I wouldn't use this other than to steal ideas from it
+yet, since I haven't generalized it for multiple sites.  Since I often
+change functionality and content at the same time, my current workflow
+is still fairly REPL-driven:
 
 - Evaluate the =core= namespace in the REPL to create the site and
   start the file watcher.
@@ -44,14 +46,16 @@ current workflow is:
 #+BEGIN_SRC
    * :mytag:othertag:
 #+END_SRC
-- Save changed/added =.org= file(s) to HTML using =\C-c e hh=,
-  causing the file watcher to reprocess the site.
+  - Directories of images in =<site-source-dir>/galleries= will be
+    turned into static image galleries
+- Export changed/added =.org= file(s) to HTML using =\C-c e hh=. This
+  will cause the file watcher to reprocess the site.
 - If needed, to restart the site-making code, re-evaluate the
   namespace after changing Clojure code /per se/.
 - To "publish," use the commented-out forms at the bottom of the
   =core= namespace to =rsync= the code to the remote Web site.
 
-* Motivation
+* FAQ
 ** Why Org Mode?
 
 I really like writing in [[http://orgmode.org/][Org Mode]] (a text

@@ -1,4 +1,5 @@
-(ns organa.html)
+(ns organa.html
+  (:require [net.cgrand.enlive-html :as html]))
 
 
 (defmacro deftag [tagname]
@@ -20,3 +21,9 @@
 (deftag em)
 (defn br [] {:tag :br})
 (defn hr [] {:tag :hr})
+
+
+(defn parse-org-html [site-source-dir basename]
+  (-> (format "%s/%s.html" site-source-dir basename)
+      slurp
+      html/html-snippet))

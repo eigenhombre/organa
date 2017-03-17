@@ -2,6 +2,7 @@
   (:require [clj-time.format :as tformat]
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
+            [hiccup.core :as hiccup]
             [mount.core :refer [defstate] :as mount]
             [net.cgrand.enlive-html :as html]
             [organa.dates :refer [article-date-format date-for-org-file]]
@@ -23,27 +24,23 @@
 
 (defn ^:private footer []
   (p {:class "footer"}
-     [(format "© %d John Jacobsen." (year))
+     [(format "© 2006-%d John Jacobsen." (year))
       " Made with "
       (a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
       "."]))
 
 
-(defn title-for-org-file [site-source-dir basename]
-  (-> (format "%s/%s.html" site-source-dir basename)
-      slurp
-      html/html-snippet
+(defn title-for-org-file [parsed-html]
+  (-> parsed-html
       (html/select [:h1.title])
       first
       :content
       first))
 
 
-(defn tags-for-org-file [site-source-dir basename]
+(defn tags-for-org-file [parsed-html]
   (mapcat :content
-          (-> (format "%s/%s.html" site-source-dir basename)
-              slurp
-              html/html-snippet
+          (-> parsed-html
               (html/select [:span.tag])
               first
               :content)))
@@ -63,9 +60,13 @@
 
 (defn articles-nav-section [file-name site-source-dir available-files]
   (div
-   `({:tag :a
-      :attrs {:name "allposts"}}
-     {:tag :h2
+   `(~(a {:name "allposts"} [])
+     ~(h2 {:class "allposts"} ["All Posts " (span {:class "postcount"}
+                                                  (->> available-files
+                                                       (remove static-pages)
+                                                       count
+                                                       (format "(%d)")))])
+     #_{:tag :h2
       :attrs {:class "allposts"}
       :content "All Posts"}
      ~@(when (not= file-name "index")
@@ -74,11 +75,12 @@
      ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove (comp static-pages :file-name))
-                  (remove (comp #{file-name} :file-name)))]
+                  (remove (comp #{file-name} :file-name)))
+             :let [parsed-html (parse-org-html site-source-dir file-name)]]
          (p
           (concat
            [(a {:href (str file-name ".html")}
-               [(title-for-org-file site-source-dir file-name)])]
+               [(title-for-org-file parsed-html)])]
            " "
            (tag-markup tags)
            [" "
@@ -206,23 +208,59 @@
   (sh "mkdir -p " target-dir))
 
 
+(def image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG")
+
+
 (defn stage-site-image-files! [site-source-dir target-dir]
   (doseq [f (->> site-source-dir
                  clojure.java.io/file
-                 file-seq
+                 .listFiles
                  (map #(.toString %))
-                 (filter (partial re-find #"\.png|\.gif$|\.jpg|\.JPG")))]
+                 (filter (partial re-find image-file-pattern)))]
     (sh "cp " f " " target-dir)))
 
 
 (defn stage-site-static-files! [site-source-dir target-dir]
   (println "Syncing files in static directory...")
-  (doseq [f (->> (str site-source-dir "/static")
-                 clojure.java.io/file
-                 file-seq
-                 (remove (comp #(.startsWith % ".") str))
-                 (map #(.toString %)))]
-    (sh "cp -rp " f " " target-dir "/static")))
+  (apply clojure.java.shell/sh
+         (clojure.string/split
+          (format "rsync -vurt %s/static %s/galleries %s"
+                  site-source-dir site-source-dir target-dir)
+          #" ")))
+
+
+(defn generate-html-for-galleries! [site-source-dir]
+  (let [galleries-dir (str site-source-dir "/galleries")]
+    (doseq [galpath (->> galleries-dir
+                         clojure.java.io/file
+                         .listFiles
+                         (map str)
+                         (remove #(.contains % "/.")))
+            :let [galfiles
+                  (->> galpath
+                       clojure.java.io/file
+                       .listFiles
+                       (map #(.getName %))
+                       (filter (partial re-find image-file-pattern)))]]
+      (let [html-out
+            (hiccup/html
+             [:div
+              [:p (str "Gallery " galpath)]
+              [:p (str "(This is a placeholder gallery until "
+                       "I can implement something a little "
+                       "more polished...)")]
+              (for [f galfiles]
+                [:a {:href (str "./" f)}
+                 [:img {:src (str "./" f), :height "250px"}]])])]
+        (spit (str galpath "/index.html") html-out)))))
+
+
+(defn wait-futures [futures]
+  (doseq [fu futures]
+    (try
+      @fu
+      (catch Throwable t
+        (.printStackTrace t)))))
 
 
 (defn generate-static-site [remote-host
@@ -233,11 +271,13 @@
                  load-file
                  to-css)
         org-files (->> (for [f (available-org-files site-source-dir)]
-                         {:file-name f
-                          ;; FIXME: don't re-parse files...
-                          :date (date-for-org-file site-source-dir f)
-                          :title (title-for-org-file site-source-dir f)
-                          :tags (tags-for-org-file site-source-dir f)})
+                         (let [parsed-html
+                               (parse-org-html site-source-dir f)]
+                           {:file-name f
+                            ;; FIXME: don't re-parse for dates!
+                            :date (date-for-org-file site-source-dir f)
+                            :title (title-for-org-file parsed-html)
+                            :tags (tags-for-org-file parsed-html)}))
                        (sort-by :date)
                        reverse)
         _ (ensure-target-dir-exists! target-dir)
@@ -246,7 +286,10 @@
         (future (stage-site-image-files! site-source-dir target-dir))
 
         static-future
-        (future (stage-site-static-files! site-source-dir target-dir))]
+        (future
+          (generate-html-for-galleries! site-source-dir)
+          (stage-site-static-files! site-source-dir target-dir))]
+
     (let [futures (doall (for [f org-files]
                            (future
                              (.write *out* (str "Processing "
@@ -258,21 +301,19 @@
                                                  org-files
                                                  css))))]
       (println "Waiting for threads to finish...")
-      (doseq [fu (concat [static-future image-future] futures)]
-        (try
-          @fu
-          (catch Throwable t
-            (.printStackTrace t))))
+      (wait-futures (concat [static-future image-future] futures))
       (println "OK"))))
 
 
 (def home-dir (env :home))
-
-
 (def remote-host "zerolib.com")
 (def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
 (def target-dir "/tmp/organa")
+
+
 (def key-location (str home-dir "/.ssh/do_id_rsa"))
+
+
 (defn update-site []
   (generate-static-site remote-host
                         site-source-dir
@@ -287,6 +328,11 @@
            (println "starting watcher...")
            (watcher [site-source-dir]
              (file-filter (extensions :html :garden))
+             (file-filter (fn [x]
+                            (-> x
+                                .getPath
+                                (.contains "/galleries/")
+                                not)))
              (rate 1000)
              (on-add update-fn)
              (on-delete update-fn)

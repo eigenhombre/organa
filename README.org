@@ -6,23 +6,24 @@
 * Introduction
 
 This project implements a generator for my current website using [[http://orgmode.org/][Emacs
-Org Mode]].  See https://github.com/eigenhombre/blorg for my previous
-attempt.
-
-In the past I've written a few (incomplete) Org Mode parsers, but HTML
-is far easier to manipulate in Clojure using Hiccup or Enlive.  The
-current code relies on exporting Org Mode to HTML first, parsing that,
-and modifying the parse tree as needed.
+Org Mode]].
 
 * Goals
 
-- To provide a Jekyll-like (or better) workflow: edit markup files,
+- To provide a [[https://jekyllrb.com/][Jekyll]]-like (or better) workflow: edit markup files,
   have them automatically processed into HTML...
 - using Org Mode as the markup language...
 - supporting all of
   - my art- and image-heavy pages and image galleries;
   - my math- and code-heavy software posts;
   - my narrative-heavy South Pole blog posts.
+
+* Strategy
+
+In the past I've written a few (incomplete) Org Mode parsers ([[https://github.com/eigenhombre/blorg][here]] is
+a previous attempt), but HTML is far easier to manipulate in Clojure
+using Hiccup or Enlive.  The current code relies on exporting Org Mode
+to HTML first, parsing that, and modifying the parse tree as needed.
 
 * Workflow
 If I were you, I wouldn't use this other than to steal ideas from it

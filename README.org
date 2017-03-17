@@ -5,7 +5,7 @@
 
 * Introduction
 
-This project implements a generator for my current website using [[http://orgmode.org/][Emacs
+This project implements a generator for [[http://zerolib.com/][my current website]] using [[http://orgmode.org/][Emacs
 Org Mode]].
 
 * Goals

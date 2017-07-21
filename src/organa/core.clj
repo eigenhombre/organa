@@ -1,11 +1,13 @@
 (ns organa.core
+  (:gen-class)
   (:require [clj-time.format :as tformat]
+            [clojure.java.shell]
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
             [hiccup.core :as hiccup]
-            [mount.core :refer [defstate] :as mount]
             [net.cgrand.enlive-html :as html]
             [organa.dates :refer [article-date-format date-for-org-file]]
+            [organa.home :as home]
             [organa.html :refer :all]
             [organa.egg :refer [easter-egg]]
             [watchtower.core :refer [watcher rate stop-watch on-add
@@ -13,7 +15,11 @@
                                      extensions]]))
 
 
-;; Org / HTML manipulation .................................
+(def home-dir (env :home))
+(def remote-host "zerolib.com")
+(def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
+(def target-dir "/tmp/organa")
+
 
 (defn ^:private remove-newlines [m]
   (update-in m [:content] (partial remove (partial = "\n"))))
@@ -46,11 +52,6 @@
               :content)))
 
 
-;; FIXME: this is hack-y; encode whether a page is static or not in
-;; .org file?
-(def ^:private static-pages #{"index" "about"})
-
-
 (defn tag-markup [tags]
   (interleave
    (repeat " ")
@@ -61,20 +62,17 @@
 (defn articles-nav-section [file-name site-source-dir available-files]
   (div
    `(~(a {:name "allposts"} [])
-     ~(h2 {:class "allposts"} ["All Posts " (span {:class "postcount"}
+     ~(h2 {:class "allposts"} ["Blog Posts " (span {:class "postcount"}
                                                   (->> available-files
-                                                       (remove static-pages)
+                                                       (remove :static?)
                                                        count
                                                        (format "(%d)")))])
-     #_{:tag :h2
-      :attrs {:class "allposts"}
-      :content "All Posts"}
      ~@(when (not= file-name "index")
          [(hr)
           (p [(a {:href "index.html"} [(em ["Home"])])])])
      ~@(for [{:keys [file-name date tags]}
              (->> available-files
-                  (remove (comp static-pages :file-name))
+                  (remove :static?)
                   (remove (comp #{file-name} :file-name)))
              :let [parsed-html (parse-org-html site-source-dir file-name)]]
          (p
@@ -99,7 +97,7 @@
 
 (defn prev-next-tags [file-name available-files]
   (let [files (->> available-files
-                   (remove (comp static-pages :file-name))
+                   (remove :static?)
                    vec)
         current-pos (position-of-current-file file-name files)
         next-post (get files (dec current-pos))
@@ -119,7 +117,8 @@
             (span (tag-markup (:tags next-post)))])])]))
 
 
-(defn transform-enlive [file-name date site-source-dir available-files css enl]
+(defn transform-enlive [file-name date site-source-dir available-files
+                        css is-static? enl]
   (html/at enl
            [:head :style] nil
            [:head :script] nil
@@ -142,51 +141,45 @@
                                  (style css)])
            [:div#content :h1.title]
            (html/after
-               `[~@(when-not (static-pages file-name)
-                     (concat
-                      [(p [(span {:class "author"} ["John Jacobsen"])
-                           (br)
-                           (span {:class "article-header-date"}
-                                 [(tformat/unparse article-date-format date)])])
-                       (p [(a {:href "index.html"} [(strong ["Home"])])
-                           " "
-                           (a {:href "#allposts"} ["All Posts"])])]
-                      (prev-next-tags file-name available-files)
-                      [(div {:class "hspace"} [])]))])
+               `[~@(concat
+                    [(p [(span {:class "author"} ["John Jacobsen"])
+                         (br)
+                         (span {:class "article-header-date"}
+                               [(tformat/unparse article-date-format date)])])
+                     (p [(a {:href "index.html"} [(strong ["Home"])])
+                         " "
+                         (a {:href "#allposts"} ["All Posts"])])]
+                    (when-not is-static?
+                      (prev-next-tags file-name available-files))
+                    [(div {:class "hspace"} [])])])
            [:div#content] (html/append
                            (div {:class "hspace"} [])
+                           (when-not is-static?
+                             (prev-next-tags file-name available-files))
                            (articles-nav-section file-name
                                                  site-source-dir
                                                  available-files)
                            (footer))))
 
 
-(defn process-org-html [file-name
-                        date
-                        site-source-dir
-                        available-files
-                        css
-                        txt]
-  (->> txt
-       html/html-snippet  ;; convert to Enlive
-       (drop 3)           ;; remove useless stuff at top
-       (transform-enlive file-name date site-source-dir available-files css)
-       html/emit*         ;; turn back into html
-       (apply str)))
-
-
 (defn process-html-file! [site-source-dir
                           target-dir
-                          {:keys [file-name date]}
+                          {:keys [file-name date is-static?]}
                           available-files
-                          extra-css]
+                          css]
   (->> (str file-name ".html")
        (str site-source-dir "/")
        slurp
-       (process-org-html file-name
+       html/html-snippet   ;; convert to Enlive
+       (drop 3)            ;; remove useless stuff at top
+       (transform-enlive file-name
                          date
                          site-source-dir
-                         available-files extra-css)
+                         available-files
+                         css
+                         is-static?)
+       html/emit*        ;; turn back into html
+       (apply str)
        (spit (str target-dir "/" file-name ".html"))))
 
 
@@ -205,6 +198,7 @@
 
 
 (defn ensure-target-dir-exists! [target-dir]
+  ;; FIXME: do it the Java way
   (sh "mkdir -p " target-dir))
 
 
@@ -212,6 +206,7 @@
 
 
 (defn stage-site-image-files! [site-source-dir target-dir]
+  ;; FIXME: avoid bash hack?
   (doseq [f (->> site-source-dir
                  clojure.java.io/file
                  .listFiles
@@ -263,21 +258,46 @@
         (.printStackTrace t)))))
 
 
-(defn generate-static-site [remote-host
-                            site-source-dir
-                            target-dir]
+(defn make-home-page [site-source-dir org-files css]
+  (let [ ;; FIXME: Hack-y?
+        base-html "<html><head></head><body></body></html>"
+        enlive-snippet (html/html-snippet base-html)
+        out-path (str target-dir "/index.html")]
+    (->> (html/at enlive-snippet
+           [:head] (html/append
+                    [(html/html-snippet easter-egg)
+                     (style css)])
+           [:body] (html/append
+                    [(home/home-body)
+                     ;;(div {:class "hspace"} [])
+                     ])
+           [:div#blogposts] (html/append
+                             [(articles-nav-section "index"
+                                                    site-source-dir
+                                                    org-files)
+                              (footer)]))
+         (html/emit*)
+         (apply str)
+         (spit out-path))))
+
+
+(defn generate-site [remote-host
+                     site-source-dir
+                     target-dir]
   (let [css (->> "index.garden"
                  (str site-source-dir "/")
                  load-file
                  to-css)
         org-files (->> (for [f (available-org-files site-source-dir)]
                          (let [parsed-html
-                               (parse-org-html site-source-dir f)]
+                               (parse-org-html site-source-dir f)
+                               tags (tags-for-org-file parsed-html)]
                            {:file-name f
                             ;; FIXME: don't re-parse for dates!
                             :date (date-for-org-file site-source-dir f)
                             :title (title-for-org-file parsed-html)
-                            :tags (tags-for-org-file parsed-html)}))
+                            :tags tags
+                            :static? (some #{"static"} tags)}))
                        (sort-by :date)
                        reverse)
         _ (ensure-target-dir-exists! target-dir)
@@ -290,78 +310,27 @@
           (generate-html-for-galleries! site-source-dir)
           (stage-site-static-files! site-source-dir target-dir))]
 
+    (make-home-page site-source-dir org-files css)
     (let [futures (doall (for [f org-files]
                            (future
-                             (.write *out* (str "Processing "
-                                                (:file-name f)
-                                                "\n"))
                              (process-html-file! site-source-dir
                                                  target-dir
                                                  f
                                                  org-files
                                                  css))))]
+      (Thread/sleep 2000)
       (println "Waiting for threads to finish...")
-      (wait-futures (concat [static-future image-future] futures))
-      (println "OK"))))
-
-
-(def home-dir (env :home))
-(def remote-host "zerolib.com")
-(def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
-(def target-dir "/tmp/organa")
-
-
-(def key-location (str home-dir "/.ssh/do_id_rsa"))
+      (wait-futures (concat [static-future image-future] futures)))))
 
 
 (defn update-site []
-  (generate-static-site remote-host
-                        site-source-dir
-                        target-dir))
+  (generate-site remote-host
+                 site-source-dir
+                 target-dir))
 
 
-(defstate watcher-state
-  :start (let [update-fn (fn [f]
-                           (println "added " f)
-                           (update-site))]
-           (update-site)
-           (println "starting watcher...")
-           (watcher [site-source-dir]
-             (file-filter (extensions :html :garden))
-             (file-filter (fn [x]
-                            (-> x
-                                .getPath
-                                (.contains "/galleries/")
-                                not)))
-             (rate 1000)
-             (on-add update-fn)
-             (on-delete update-fn)
-             (on-modify update-fn)))
-  :stop (stop-watch))
-
-
-(mount/stop)
-(mount/start)
-
-
-(defn sync-tmp-files-to-remote! [key-location
-                                 target-dir
-                                 remote-host
-                                 remote-dir]
-  ;; FIXME: Make less hack-y:
-  (spit "/tmp/sync-script"
-        (format "rsync --rsh 'ssh -i %s' -vurt %s/* root@%s:%s"
-                key-location
-                target-dir
-                remote-host
-                remote-dir))
-  (sh "bash /tmp/sync-script"))
-
-
-(comment
-  (sh "open file://"  target-dir "/index.html")
-  (sync-tmp-files-to-remote! key-location
-                             target-dir
-                             remote-host
-                             (str "/www/" remote-host))
-  (sh "open http://" remote-host))
+(defn -main []
+  (println (format  "Creating file://%s/index.html" target-dir))
+  (update-site)
+  (shutdown-agents)
+  (println "OK"))

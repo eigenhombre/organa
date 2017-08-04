@@ -8,7 +8,8 @@
         (p "Hi, I'm an artist and software engineer living in
                Chicago, Illinois, USA.")
         (p ["As an artist, I'm primarily interested in figurative oil
-            painting and drawing.  You can see samples of my work on "
+            painting and drawing.  You can see samples of my work "
+            (a {:href "galleries/recent-art/index.html"} "here") " or on "
             (a {:href "http://instagram.com/eigenhombre"} "Instagram")
             " or "
             (a {:href "http://toomanysketchbooks.tumblr.com"} "Tumblr")
@@ -25,18 +26,20 @@
                          (th {:class "table"}
                              "Engineering")])])
                   (tbody
-                   [(tr [(td [(a {:href "http://instagram.com/eigenhombre"}
-                                 "Instagram")])
+                   [(tr [(td [(a {:href "galleries/recent-art/index.html"}
+                                 "Recent work")])
                          (td [(a {:href "https://github.com/eigenhombre"}
                                  "GitHub")])])
                     (tr [(td [(a {:href "http://toomanysketchbooks.tumblr.com/"}
                                  "Tumblr")])
                          (td [(a {:href "https://twitter.com/eigenhombre"}
                                  "Twitter")])])
-                    (tr [(td [(a {:href "http://johnj.com"}
-                                 "Old Art Web site")])
+                    (tr [(td [(a {:href "http://instagram.com/eigenhombre"}
+                                 "Instagram")])
                          (td [(a {:href "http://eigenhombre.com"}
-                                 "Old Tech Web Site")])])])])])
+                                 "Old Tech Web Site")])])
+                    (tr [(td [(a {:href "http://johnj.com"}
+                                 "Old Art Web site")])])])])])
         (p "Aside from the above links, this site is primarily
             here to present to you the following blog posts.  Many of
             these were written at the Geographic South Pole between

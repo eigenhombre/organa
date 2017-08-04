@@ -15,6 +15,7 @@
 (deftag div)
 (deftag h1)
 (deftag h2)
+(deftag img)
 (deftag li)
 (deftag p)
 (deftag pre)

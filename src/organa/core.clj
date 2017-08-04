@@ -96,25 +96,31 @@
 
 
 (defn prev-next-tags [file-name available-files]
-  (let [files (->> available-files
-                   (remove :static?)
-                   vec)
-        current-pos (position-of-current-file file-name files)
-        next-post (get files (dec current-pos))
-        prev-post (get files (inc current-pos))]
-    [(when prev-post
-       (p {:class "prev-next-post"}
-          [(span {:class "post-nav-earlier-later"}
-                 ["Earlier post "])
-           (a {:href (str "./" (:file-name prev-post) ".html")}
-              [(:title prev-post)])
-           (span (tag-markup (:tags prev-post)))]))
-     (when next-post
-       [(p {:class "prev-next-post"}
-           [(span {:class "post-nav-earlier-later"} ["Later post "])
-            (a {:href (str "./" (:file-name next-post) ".html")}
-               [(:title next-post)])
-            (span (tag-markup (:tags next-post)))])])]))
+  (try
+    (let [files (->> available-files
+                     (remove :static?)
+                     vec)
+          current-pos (position-of-current-file file-name files)
+          next-post (get files (dec current-pos))
+          prev-post (get files (inc current-pos))]
+      [(when prev-post
+         (p {:class "prev-next-post"}
+            [(span {:class "post-nav-earlier-later"}
+                   ["Earlier post "])
+             (a {:href (str "./" (:file-name prev-post) ".html")}
+                [(:title prev-post)])
+             (span (tag-markup (:tags prev-post)))]))
+       (when next-post
+         [(p {:class "prev-next-post"}
+             [(span {:class "post-nav-earlier-later"} ["Later post "])
+              (a {:href (str "./" (:file-name next-post) ".html")}
+                 [(:title next-post)])
+              (span (tag-markup (:tags next-post)))])])])
+    (catch Throwable t
+      ;; FIXME: Handle impedence mismatch between static pages and
+      ;; blog posts better
+      (println "Warning... skipping prev/next for" file-name)
+      [])))
 
 
 (defn transform-enlive [file-name date site-source-dir available-files
@@ -224,7 +230,12 @@
           #" ")))
 
 
-(defn generate-html-for-galleries! [site-source-dir]
+;; FIXME: Hack-y?
+(def base-enlive-snippet
+  (html/html-snippet "<html><head></head><body></body></html>"))
+
+
+(defn generate-html-for-galleries! [site-source-dir css]
   (let [galleries-dir (str site-source-dir "/galleries")]
     (doseq [galpath (->> galleries-dir
                          clojure.java.io/file
@@ -237,33 +248,35 @@
                        .listFiles
                        (map #(.getName %))
                        (filter (partial re-find image-file-pattern)))]]
-      (let [html-out
-            (hiccup/html
-             [:div
-              [:p (str "Gallery " galpath)]
-              [:p (str "(This is a placeholder gallery until "
-                       "I can implement something a little "
-                       "more polished...)")]
-              (for [f galfiles]
-                [:a {:href (str "./" f)}
-                 [:img {:src (str "./" f), :height "250px"}]])])]
-        (spit (str galpath "/index.html") html-out)))))
+      (println "Making gallery" galpath)
+      (->> (html/at base-enlive-snippet
+             [:head] (html/append
+                    [(html/html-snippet easter-egg)
+                     (style css)])
+             [:body]
+             (html/append
+              [(div {:class "gallery"}
+                 (for [f galfiles]
+                   (a {:href (str "./" f)}
+                      [(img {:src (str "./" f)
+                             :height "250px"}
+                            [])])))]))
+           (html/emit*)
+           (apply str)
+           (spit (str galpath "/index.html"))))))
 
 
 (defn wait-futures [futures]
   (doseq [fu futures]
     (try
-      @fu
+      (deref fu)
       (catch Throwable t
-        (.printStackTrace t)))))
+        (println t)))))
 
 
 (defn make-home-page [site-source-dir org-files css]
-  (let [ ;; FIXME: Hack-y?
-        base-html "<html><head></head><body></body></html>"
-        enlive-snippet (html/html-snippet base-html)
-        out-path (str target-dir "/index.html")]
-    (->> (html/at enlive-snippet
+  (let [out-path (str target-dir "/index.html")]
+    (->> (html/at base-enlive-snippet
            [:head] (html/append
                     [(html/html-snippet easter-egg)
                      (style css)])
@@ -304,10 +317,9 @@
 
         image-future
         (future (stage-site-image-files! site-source-dir target-dir))
-
         static-future
         (future
-          (generate-html-for-galleries! site-source-dir)
+          (generate-html-for-galleries! site-source-dir css)
           (stage-site-static-files! site-source-dir target-dir))]
 
     (make-home-page site-source-dir org-files css)
@@ -320,7 +332,8 @@
                                                  css))))]
       (Thread/sleep 2000)
       (println "Waiting for threads to finish...")
-      (wait-futures (concat [static-future image-future] futures)))))
+      (wait-futures (concat [static-future image-future] futures))
+      (println "OK"))))
 
 
 (defn update-site []
@@ -332,5 +345,4 @@
 (defn -main []
   (println (format  "Creating file://%s/index.html" target-dir))
   (update-site)
-  (shutdown-agents)
-  (println "OK"))
+  (shutdown-agents))

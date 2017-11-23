@@ -19,6 +19,7 @@
 (deftag li)
 (deftag p)
 (deftag pre)
+(deftag script)
 (deftag span)
 (deftag strong)
 (deftag style)

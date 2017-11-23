@@ -7,7 +7,7 @@
             [hiccup.core :as hiccup]
             [net.cgrand.enlive-html :as html]
             [organa.dates :refer [article-date-format date-for-org-file]]
-            [organa.home :as home]
+            [organa.pages :as pages]
             [organa.html :refer :all]
             [organa.egg :refer [easter-egg]]
             [watchtower.core :refer [watcher rate stop-watch on-add
@@ -59,17 +59,28 @@
      (span {:class (str t "-tag tag")} [t]))))
 
 
-(defn articles-nav-section [file-name site-source-dir available-files]
+(defn articles-nav-section [file-name
+                            site-source-dir
+                            available-files
+                            tags]
   (div
    `(~(a {:name "allposts"} [])
-     ~(h2 {:class "allposts"} ["Blog Posts " (span {:class "postcount"}
-                                                  (->> available-files
-                                                       (remove :static?)
-                                                       count
-                                                       (format "(%d)")))])
+     ~(h2 {:class "allposts"} ["Posts "
+                               (span {:class "postcount"}
+                                     (->> available-files
+                                          (remove :static?)
+                                          count
+                                          (format "(%d)")))])
+     ~(p (concat ["Select from below, or choose only posts for:"]
+                 (for [tag tags]
+                   (span {:class (format "%s-tag tag" tag)}
+                         [(a {:href (str tag "-blog.html")}
+                             tag)
+                          " "]))))
      ~@(when (not= file-name "index")
          [(hr)
           (p [(a {:href "index.html"} [(em ["Home"])])])])
+     ~(hr)
      ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove :static?)
@@ -124,54 +135,61 @@
 
 
 (defn transform-enlive [file-name date site-source-dir available-files
-                        css is-static? enl]
+                        tags css is-static? enl]
   (html/at enl
-           [:head :style] nil
-           [:head :script] nil
-           [:div#postamble] nil
-           ;; Remove dummy header lines containting tags, in first
-           ;; sections:
-           [:h2#sec-1] (fn [thing]
-                         (when-not (-> thing
-                                       :content
-                                       second
-                                       :attrs
-                                       :class
-                                       (= "tag"))
-                           thing))
-           [:body] remove-newlines
-           [:ul] remove-newlines
-           [:html] remove-newlines
-           [:head] remove-newlines
-           [:head] (html/append [(html/html-snippet easter-egg)
-                                 (style css)])
-           [:div#content :h1.title]
-           (html/after
-               `[~@(concat
-                    [(p [(span {:class "author"} ["John Jacobsen"])
-                         (br)
-                         (span {:class "article-header-date"}
-                               [(tformat/unparse article-date-format date)])])
-                     (p [(a {:href "index.html"} [(strong ["Home"])])
-                         " "
-                         (a {:href "#allposts"} ["All Posts"])])]
+    [:head :style] nil
+    [:head :script] nil
+    [:div#postamble] nil
+    ;; Remove dummy header lines containting tags, in first
+    ;; sections:
+    [:h2#sec-1] (fn [thing]
+                  (when-not (-> thing
+                                :content
+                                second
+                                :attrs
+                                :class
+                                (= "tag"))
+                    thing))
+    [:body] remove-newlines
+    [:ul] remove-newlines
+    [:html] remove-newlines
+    [:head] remove-newlines
+    [:head] (html/append [(html/html-snippet easter-egg)
+                          (style css)])
+    [:div#content :h1.title]
+    (html/after
+        `[~@(concat
+             [(p [(span {:class "author"} ["John Jacobsen"])
+                  (br)
+                  (span {:class "article-header-date"}
+                        [(tformat/unparse article-date-format date)])])
+              (p [(a {:href "index.html"} [(strong ["Home"])])
+                  " "
+                  (a {:href "blog.html"} ["Other Posts"])])]
+             (when-not is-static?
+               (prev-next-tags file-name available-files))
+             [(div {:class "hspace"} [])])])
+    [:div#content] (html/append
+                    (div {:class "hspace"} [])
                     (when-not is-static?
                       (prev-next-tags file-name available-files))
-                    [(div {:class "hspace"} [])])])
-           [:div#content] (html/append
-                           (div {:class "hspace"} [])
-                           (when-not is-static?
-                             (prev-next-tags file-name available-files))
-                           (articles-nav-section file-name
-                                                 site-source-dir
-                                                 available-files)
-                           (footer))))
+                    (articles-nav-section file-name
+                                          site-source-dir
+                                          available-files
+                                          tags)
+                    (footer)
+                    (script {:src "http://www.google-analytics.com/urchin.js"
+                             :type "text/javascript"} [])
+                    (script {:type "text/javascript"}
+                            [(format "_uacct = \"%s\"; urchinTracker();"
+                                     "UA-1402133-1")]))))
 
 
 (defn process-html-file! [site-source-dir
                           target-dir
                           {:keys [file-name date is-static?]}
                           available-files
+                          tags
                           css]
   (->> (str file-name ".html")
        (str site-source-dir "/")
@@ -182,6 +200,7 @@
                          date
                          site-source-dir
                          available-files
+                         tags
                          css
                          is-static?)
        html/emit*        ;; turn back into html
@@ -274,24 +293,56 @@
         (println t)))))
 
 
-(defn make-home-page [site-source-dir org-files css]
+(defn make-home-page [site-source-dir org-files tags css]
   (let [out-path (str target-dir "/index.html")]
     (->> (html/at base-enlive-snippet
            [:head] (html/append
                     [(html/html-snippet easter-egg)
                      (style css)])
            [:body] (html/append
-                    [(home/home-body)
+                    [(pages/home-body)
                      ;;(div {:class "hspace"} [])
                      ])
            [:div#blogposts] (html/append
                              [(articles-nav-section "index"
                                                     site-source-dir
-                                                    org-files)
+                                                    org-files
+                                                    tags)
                               (footer)]))
          (html/emit*)
          (apply str)
          (spit out-path))))
+
+
+(defn make-blog-page
+  ([site-source-dir org-files tags css]
+   (make-blog-page :all site-source-dir org-files tags css))
+  ([tag site-source-dir org-files tags css]
+   (println (format "Making blog page for tag '%s'" tag))
+   (let [out-path (str target-dir
+                       "/"
+                       (if (= tag :all) "" (str tag "-"))
+                       "blog.html")
+         tag-posts (if (= tag :all)
+                     org-files
+                     (filter (comp (partial some #{tag}) :tags) org-files))]
+     (->> (html/at base-enlive-snippet
+            [:head] (html/append
+                     [(html/html-snippet easter-egg)
+                      (style css)])
+            [:body] (html/append
+                     [(pages/blog-body)
+                      ;;(div {:class "hspace"} [])
+                      ])
+            [:div#blogposts] (html/append
+                              [(articles-nav-section "blog"
+                                                     site-source-dir
+                                                     tag-posts
+                                                     tags)
+                               (footer)]))
+          (html/emit*)
+          (apply str)
+          (spit out-path)))))
 
 
 (defn generate-site [remote-host
@@ -313,6 +364,7 @@
                             :static? (some #{"static"} tags)}))
                        (sort-by :date)
                        reverse)
+        alltags (->> org-files (mapcat :tags) (remove #{"static"}) (into #{}))
         _ (ensure-target-dir-exists! target-dir)
 
         image-future
@@ -322,13 +374,17 @@
           (generate-html-for-galleries! site-source-dir css)
           (stage-site-static-files! site-source-dir target-dir))]
 
-    (make-home-page site-source-dir org-files css)
+    (make-home-page site-source-dir org-files alltags css)
+    (make-blog-page site-source-dir org-files alltags css)
+    (doseq [tag alltags]
+      (make-blog-page tag site-source-dir org-files alltags css))
     (let [futures (doall (for [f org-files]
                            (future
                              (process-html-file! site-source-dir
                                                  target-dir
                                                  f
                                                  org-files
+                                                 alltags
                                                  css))))]
       (Thread/sleep 2000)
       (println "Waiting for threads to finish...")

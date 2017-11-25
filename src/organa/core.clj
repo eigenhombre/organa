@@ -41,7 +41,10 @@
       (html/select [:h1.title])
       first
       :content
-      first))
+      first
+      ;; For some reason ’ is rendering strangely in Chrome when
+      ;; synced to zerolib:
+      (clojure.string/replace #"’" "'")))
 
 
 (defn tags-for-org-file [parsed-html]

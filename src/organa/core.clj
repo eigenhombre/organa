@@ -59,7 +59,8 @@
   (interleave
    (repeat " ")
    (for [t tags]
-     (span {:class (str t "-tag tag")} [t]))))
+     (span {:class (str t "-tag tag")}
+           [(a {:href (str t "-blog.html")} t)]))))
 
 
 (defn articles-nav-section [file-name
@@ -74,7 +75,9 @@
                                           (remove :static?)
                                           count
                                           (format "(%d)")))])
-     ~(p (concat ["Select from below, or choose only posts for:"]
+     ~(p (concat ["Select from below, "
+                  (a {:href "blog.html"} "view all posts")
+                  ", or choose only posts for:"]
                  (for [tag tags]
                    (span {:class (format "%s-tag tag" tag)}
                          [(a {:href (str tag "-blog.html")}
@@ -89,15 +92,17 @@
                   (remove :static?)
                   (remove (comp #{file-name} :file-name)))
              :let [parsed-html (parse-org-html site-source-dir file-name)]]
-         (p
-          (concat
-           [(a {:href (str file-name ".html")}
-               [(title-for-org-file parsed-html)])]
-           " "
-           (tag-markup tags)
-           [" "
-            (span {:class "article-date"}
-                  [(when date (tformat/unparse article-date-format date))])])))
+         (when parsed-html
+           (p
+            (concat
+             [(a {:href (str file-name ".html")}
+                 [(title-for-org-file parsed-html)])]
+             " "
+             (tag-markup tags)
+             [" "
+              (span {:class "article-date"}
+                    [(when date (tformat/unparse article-date-format
+                                                 date))])]))))
      ~@(when (not= file-name "index")
          [(p [(a {:href "index.html"} [(em ["Home"])])])]))))
 
@@ -137,6 +142,19 @@
       [])))
 
 
+(defn page-header [css]
+  [(html/html-snippet easter-egg)
+   (script {:type "text/javascript"
+            :src (str "https://cdnjs.cloudflare.com"
+                      "/ajax/libs/mathjax/2.7.2/"
+                      "MathJax.js"
+                      "?config=TeX-MML-AM_CHTML")}
+           [])
+   (link {:rel "./favicon.gif"
+          :type "image/gif"} [])
+   (style css)])
+
+
 (defn transform-enlive [file-name date site-source-dir available-files
                         tags css is-static? enl]
   (html/at enl
@@ -157,8 +175,7 @@
     [:ul] remove-newlines
     [:html] remove-newlines
     [:head] remove-newlines
-    [:head] (html/append [(html/html-snippet easter-egg)
-                          (style css)])
+    [:head] (html/append (page-header css))
     [:div#content :h1.title]
     (html/after
         `[~@(concat
@@ -216,6 +233,7 @@
        clojure.java.io/file
        file-seq
        (filter (comp #(.endsWith % ".org") str))
+       (remove (comp #(.contains % ".#") str))
        (map #(.getName %))
        (map #(.substring % 0 (.lastIndexOf % ".")))))
 
@@ -240,7 +258,7 @@
                  .listFiles
                  (map #(.toString %))
                  (filter (partial re-find image-file-pattern)))]
-    (sh "cp " f " " target-dir)))
+    (sh "cp -p " f " " target-dir)))
 
 
 (defn stage-site-static-files! [site-source-dir target-dir]
@@ -272,9 +290,7 @@
                        (filter (partial re-find image-file-pattern)))]]
       (println "Making gallery" galpath)
       (->> (html/at base-enlive-snippet
-             [:head] (html/append
-                    [(html/html-snippet easter-egg)
-                     (style css)])
+             [:head] (html/append (page-header css))
              [:body]
              (html/append
               [(div {:class "gallery"}
@@ -299,9 +315,7 @@
 (defn make-home-page [site-source-dir org-files tags css]
   (let [out-path (str target-dir "/index.html")]
     (->> (html/at base-enlive-snippet
-           [:head] (html/append
-                    [(html/html-snippet easter-egg)
-                     (style css)])
+           [:head] (html/append (page-header css))
            [:body] (html/append
                     [(pages/home-body)
                      ;;(div {:class "hspace"} [])
@@ -330,9 +344,7 @@
                      org-files
                      (filter (comp (partial some #{tag}) :tags) org-files))]
      (->> (html/at base-enlive-snippet
-            [:head] (html/append
-                     [(html/html-snippet easter-egg)
-                      (style css)])
+            [:head] (html/append (page-header css))
             [:body] (html/append
                      [(pages/blog-body)
                       ;;(div {:class "hspace"} [])

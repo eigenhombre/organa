@@ -17,6 +17,7 @@
 (deftag h2)
 (deftag img)
 (deftag li)
+(deftag link)
 (deftag p)
 (deftag pre)
 (deftag script)

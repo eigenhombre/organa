@@ -150,7 +150,8 @@
                       "MathJax.js"
                       "?config=TeX-MML-AM_CHTML")}
            [])
-   (link {:rel "./favicon.gif"
+   (link {:href "./favicon.gif"
+          :rel "icon"
           :type "image/gif"} [])
    (style css)])
 

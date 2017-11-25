@@ -44,7 +44,8 @@
       first
       ;; For some reason ’ is rendering strangely in Chrome when
       ;; synced to zerolib:
-      (clojure.string/replace #"’" "'")))
+      (clojure.string/replace #"’" "'")
+      (clojure.string/replace #"…" "...")))
 
 
 (defn tags-for-org-file [parsed-html]
@@ -143,17 +144,29 @@
 
 
 (defn page-header [css]
-  [(html/html-snippet easter-egg)
-   (script {:type "text/javascript"
-            :src (str "https://cdnjs.cloudflare.com"
-                      "/ajax/libs/mathjax/2.7.2/"
-                      "MathJax.js"
-                      "?config=TeX-MML-AM_CHTML")}
-           [])
-   (link {:href "./favicon.gif"
-          :rel "icon"
-          :type "image/gif"} [])
-   (style css)])
+  (let [analytics-id (:google-analytics-tracking-id env)
+        site-id (:google-analytics-site-id env)]
+    [(html/html-snippet easter-egg)
+     (script {:type "text/javascript"
+              :src (str "https://cdnjs.cloudflare.com"
+                        "/ajax/libs/mathjax/2.7.2/"
+                        "MathJax.js"
+                        "?config=TeX-MML-AM_CHTML")}
+             [])
+     (link {:href "./favicon.gif"
+            :rel "icon"
+            :type "image/gif"} [])
+     (script {:type "text/javascript"
+              :async true
+              :src
+              (format "https://www.googletagmanager.com/gtag/js?id=UA-%s-%s"
+                      analytics-id site-id)})
+     (script {:type "text/javascript"}
+             ["window.dataLayer = window.dataLayer || [];"
+              "function gtag(){dataLayer.push(arguments);}"
+              "gtag('js', new Date());"
+              (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
+     (style css)]))
 
 
 (defn transform-enlive [file-name date site-source-dir available-files
@@ -198,12 +211,7 @@
                                           site-source-dir
                                           available-files
                                           tags)
-                    (footer)
-                    (script {:src "http://www.google-analytics.com/urchin.js"
-                             :type "text/javascript"} [])
-                    (script {:type "text/javascript"}
-                            [(format "_uacct = \"%s\"; urchinTracker();"
-                                     "UA-1402133-1")]))))
+                    (footer))))
 
 
 (defn process-html-file! [site-source-dir

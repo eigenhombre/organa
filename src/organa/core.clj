@@ -1,7 +1,9 @@
 (ns organa.core
   (:gen-class)
   (:require [clj-time.format :as tformat]
+            [clj-rss.core :as rss]
             [clojure.java.shell]
+            [clojure.walk]
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
             [hiccup.core :as hiccup]
@@ -64,6 +66,17 @@
            [(a {:href (str t "-blog.html")} t)]))))
 
 
+(defn rss-links []
+  (p ["Subscribe: "
+      (a {:href "feed.xml"
+          :class "rss"}
+         ["RSS feed ... all topics)"])
+      " ... or "
+      (a {:href "feed.clojure.xml"
+          :class "rss"}
+         ["Clojure only"])]))
+
+
 (defn articles-nav-section [file-name
                             site-source-dir
                             available-files
@@ -105,7 +118,8 @@
                     [(when date (tformat/unparse article-date-format
                                                  date))])]))))
      ~@(when (not= file-name "index")
-         [(p [(a {:href "index.html"} [(em ["Home"])])])]))))
+         [(p [(a {:href "index.html"} [(em ["Home"])])])])
+     ~(rss-links))))
 
 
 (defn position-of-current-file [file-name available-files]
@@ -116,31 +130,25 @@
 
 
 (defn prev-next-tags [file-name available-files]
-  (try
-    (let [files (->> available-files
-                     (remove :static?)
-                     vec)
-          current-pos (position-of-current-file file-name files)
-          next-post (get files (dec current-pos))
-          prev-post (get files (inc current-pos))]
-      [(when prev-post
-         (p {:class "prev-next-post"}
-            [(span {:class "post-nav-earlier-later"}
-                   ["Earlier post "])
-             (a {:href (str "./" (:file-name prev-post) ".html")}
-                [(:title prev-post)])
-             (span (tag-markup (:tags prev-post)))]))
-       (when next-post
-         [(p {:class "prev-next-post"}
-             [(span {:class "post-nav-earlier-later"} ["Later post "])
-              (a {:href (str "./" (:file-name next-post) ".html")}
-                 [(:title next-post)])
-              (span (tag-markup (:tags next-post)))])])])
-    (catch Throwable t
-      ;; FIXME: Handle impedence mismatch between static pages and
-      ;; blog posts better
-      (println "Warning... skipping prev/next for" file-name)
-      [])))
+  (let [files (->> available-files
+                   (remove :static?)
+                   vec)
+        current-pos (position-of-current-file file-name files)
+        next-post (get files (dec current-pos))
+        prev-post (get files (inc current-pos))]
+    [(when prev-post
+       (p {:class "prev-next-post"}
+          [(span {:class "post-nav-earlier-later"}
+                 ["Earlier post "])
+           (a {:href (str "./" (:file-name prev-post) ".html")}
+              [(:title prev-post)])
+           (span (tag-markup (:tags prev-post)))]))
+     (when next-post
+       [(p {:class "prev-next-post"}
+           [(span {:class "post-nav-earlier-later"} ["Later post "])
+            (a {:href (str "./" (:file-name next-post) ".html")}
+               [(:title next-post)])
+            (span (tag-markup (:tags next-post)))])])]))
 
 
 (defn page-header [css]
@@ -216,22 +224,18 @@
 
 (defn process-html-file! [site-source-dir
                           target-dir
-                          {:keys [file-name date is-static?]}
+                          {:keys [file-name date static? parsed]}
                           available-files
                           tags
                           css]
-  (->> (str file-name ".html")
-       (str site-source-dir "/")
-       slurp
-       html/html-snippet   ;; convert to Enlive
-       (drop 3)            ;; remove useless stuff at top
+  (->> parsed
        (transform-enlive file-name
                          date
                          site-source-dir
                          available-files
                          tags
                          css
-                         is-static?)
+                         static?)
        html/emit*        ;; turn back into html
        (apply str)
        (spit (str target-dir "/" file-name ".html"))))
@@ -369,6 +373,56 @@
           (spit out-path)))))
 
 
+(defn html-for-rss
+  "
+  Remove JavaScript and CSS bits from Org-generated HTML for RSS feed.
+  "
+  [parsed-html]
+  (clojure.walk/prewalk
+   (fn [x]
+     (if (and (map? x)
+              (#{"text/css" "text/javascript"} (get-in x [:attrs :type])))
+       (dissoc (into {} x) :content)
+       x))
+   parsed-html))
+
+
+(defn make-rss-feeds
+  ([topic site-source-dir rss-file-name org-files]
+   (make-rss-feeds site-source-dir
+                   rss-file-name
+                   (filter (comp (partial some #{topic})
+                                 :tags)
+                           org-files)))
+  ([site-source-dir rss-file-name org-files]
+   (let [rss-file-path (str target-dir "/" rss-file-name)
+         posts-for-feed (->> org-files
+                             (remove :static?)
+                             (take 20))
+         feed-items (for [f posts-for-feed
+                          :let [file-name (:file-name f)
+                                local-path (format "%s/%s.html"
+                                                   site-source-dir
+                                                   file-name)
+                                link-path (format "http://%s/%s.html"
+                                                  remote-host
+                                                  file-name)]]
+                      {:title (:title f)
+                       :link link-path
+                       :pubDate (.toDate (:date f))
+                       :description (format "<![CDATA[ %s ]]>"
+                                            (->> f
+                                                 :parsed
+                                                 html-for-rss
+                                                 html/emit*
+                                                 (apply str)))})]
+     (->> feed-items
+          (rss/channel-xml {:title "John Jacobsen"
+                            :link (str "http://" remote-host)
+                            :description "Posts by John Jacobsen"})
+          (spit rss-file-path)))))
+
+
 (defn generate-site [remote-host
                      site-source-dir
                      target-dir]
@@ -379,12 +433,20 @@
         org-files (->> (for [f (available-org-files site-source-dir)]
                          (let [parsed-html
                                (parse-org-html site-source-dir f)
-                               tags (tags-for-org-file parsed-html)]
+                               tags (tags-for-org-file parsed-html)
+                               parsed (->> (str f ".html")
+                                           (str site-source-dir "/")
+                                           slurp
+                                           ;; convert to Enlive:
+                                           html/html-snippet
+                                           ;; remove useless stuff at top:
+                                           (drop 3))]
                            {:file-name f
                             ;; FIXME: don't re-parse for dates!
                             :date (date-for-org-file site-source-dir f)
                             :title (title-for-org-file parsed-html)
                             :tags tags
+                            :parsed parsed
                             :static? (some #{"static"} tags)}))
                        (sort-by :date)
                        reverse)
@@ -402,6 +464,9 @@
     (make-blog-page site-source-dir org-files alltags css)
     (doseq [tag alltags]
       (make-blog-page tag site-source-dir org-files alltags css))
+    (println "Making RSS feed...")
+    (make-rss-feeds site-source-dir "feed.xml" org-files)
+    (make-rss-feeds "clojure" site-source-dir "feed.clojure.xml" org-files)
     (let [futures (doall (for [f org-files]
                            (future
                              (process-html-file! site-source-dir

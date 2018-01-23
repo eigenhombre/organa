@@ -87,6 +87,7 @@
                                (span {:class "postcount"}
                                      (->> available-files
                                           (remove :static?)
+                                          (remove :draft?)
                                           count
                                           (format "(%d)")))])
      ~(p (concat ["Select from below, "
@@ -104,6 +105,7 @@
      ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove :static?)
+                  (remove :draft?)
                   (remove (comp #{file-name} :file-name)))
              :let [parsed-html (parse-org-html site-source-dir file-name)]]
          (when parsed-html
@@ -132,6 +134,7 @@
 (defn prev-next-tags [file-name available-files]
   (let [files (->> available-files
                    (remove :static?)
+                   (remove :draft?)
                    vec)
         current-pos (position-of-current-file file-name files)
         next-post (get files (dec current-pos))
@@ -168,7 +171,8 @@
               :async true
               :src
               (format "https://www.googletagmanager.com/gtag/js?id=UA-%s-%s"
-                      analytics-id site-id)})
+                      analytics-id site-id)}
+             [])
      (script {:type "text/javascript"}
              ["window.dataLayer = window.dataLayer || [];"
               "function gtag(){dataLayer.push(arguments);}"
@@ -178,7 +182,7 @@
 
 
 (defn transform-enlive [file-name date site-source-dir available-files
-                        tags css is-static? enl]
+                        tags css static? draft? enl]
   (html/at enl
     [:head :style] nil
     [:head :script] nil
@@ -208,12 +212,12 @@
               (p [(a {:href "index.html"} [(strong ["Home"])])
                   " "
                   (a {:href "blog.html"} ["Other Posts"])])]
-             (when-not is-static?
+             (when-not (or static? draft?)
                (prev-next-tags file-name available-files))
              [(div {:class "hspace"} [])])])
     [:div#content] (html/append
                     (div {:class "hspace"} [])
-                    (when-not is-static?
+                    (when-not (or static? draft?)
                       (prev-next-tags file-name available-files))
                     (articles-nav-section file-name
                                           site-source-dir
@@ -224,7 +228,7 @@
 
 (defn process-html-file! [site-source-dir
                           target-dir
-                          {:keys [file-name date static? parsed]}
+                          {:keys [file-name date static? draft? parsed]}
                           available-files
                           tags
                           css]
@@ -235,10 +239,19 @@
                          available-files
                          tags
                          css
-                         static?)
+                         static?
+                         draft?)
        html/emit*        ;; turn back into html
        (apply str)
        (spit (str target-dir "/" file-name ".html"))))
+
+
+(defn html-file-exists [org-file-name]
+  (-> org-file-name
+      (clojure.string/replace
+       #"\.org$" ".html")
+      clojure.java.io/file
+      .exists))
 
 
 (defn available-org-files [site-source-dir]
@@ -246,6 +259,7 @@
        clojure.java.io/file
        file-seq
        (filter (comp #(.endsWith % ".org") str))
+       (filter html-file-exists)
        (remove (comp #(.contains % ".#") str))
        (map #(.getName %))
        (map #(.substring % 0 (.lastIndexOf % ".")))))
@@ -398,6 +412,7 @@
    (let [rss-file-path (str target-dir "/" rss-file-name)
          posts-for-feed (->> org-files
                              (remove :static?)
+                             (remove :draft?)
                              (take 20))
          feed-items (for [f posts-for-feed
                           :let [file-name (:file-name f)
@@ -447,10 +462,16 @@
                             :title (title-for-org-file parsed-html)
                             :tags tags
                             :parsed parsed
-                            :static? (some #{"static"} tags)}))
+                            :static? (some #{"static"} tags)
+                            :draft? (some #{"draft"} tags)}))
                        (sort-by :date)
                        reverse)
-        alltags (->> org-files (mapcat :tags) (remove #{"static"}) (into #{}))
+        alltags (->> org-files
+                     ;; Don't show draft/in progress posts:
+                     (remove (comp (partial some #{"draft"}) :tags))
+                     (mapcat :tags)
+                     (remove #{"static" "draft"})
+                     (into #{}))
         _ (ensure-target-dir-exists! target-dir)
 
         image-future

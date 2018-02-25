@@ -93,7 +93,7 @@
      ~(p (concat ["Select from below, "
                   (a {:href "blog.html"} "view all posts")
                   ", or choose only posts for:"]
-                 (for [tag tags]
+                 (for [tag (sort tags)]
                    (span {:class (format "%s-tag tag" tag)}
                          [(a {:href (str tag "-blog.html")}
                              tag)
@@ -182,7 +182,7 @@
 
 
 (defn transform-enlive [file-name date site-source-dir available-files
-                        tags css static? draft? enl]
+                        tags alltags css static? draft? enl]
   (html/at enl
     [:head :style] nil
     [:head :script] nil
@@ -205,7 +205,8 @@
     [:div#content :h1.title]
     (html/after
         `[~@(concat
-             [(p [(span {:class "author"} ["John Jacobsen"])
+             [(tag-markup tags)
+              (p [(span {:class "author"} ["John Jacobsen"])
                   (br)
                   (span {:class "article-header-date"}
                         [(tformat/unparse article-date-format date)])])
@@ -222,15 +223,15 @@
                     (articles-nav-section file-name
                                           site-source-dir
                                           available-files
-                                          tags)
+                                          alltags)
                     (footer))))
 
 
 (defn process-html-file! [site-source-dir
                           target-dir
-                          {:keys [file-name date static? draft? parsed]}
+                          {:keys [file-name date static? draft? parsed tags]}
                           available-files
-                          tags
+                          alltags
                           css]
   (->> parsed
        (transform-enlive file-name
@@ -238,6 +239,7 @@
                          site-source-dir
                          available-files
                          tags
+                         alltags
                          css
                          static?
                          draft?)

@@ -1,13 +1,31 @@
 (ns organa.egg)
 
 
-(def easter-egg "<!--
+(defn whodonit []
+  (rand-nth ["Produced by little elves with hand tools"
+             "Make by perky little white bunnies"
+             "Produced in high-energy, heavy ion impacts"
+             "Forged in the fires of Odin"
+             "Seen in the Tannhauser gates"
+             "Swept under your carpet"
+             "Crashed into brick walls at high speed"
+             "Atomized into little silver flakes"]))
+
+
+(defn easter-egg []
+  (let [who (whodonit)
+        n (- 62 (count who))
+        line3 (str "            ``` "
+                   who
+                   ", using "
+                   (apply str (repeat n "`")))]
+    (format "<!--
 
 
             `````````````````````````````````````````````````````````````````````````
             `````````````````````````````````````````````````````````````````````````
             `````````````````````````````````````````````````````````````````````````
-            ```Artisanally crafted, for the benefit of all, using````````````````````
+%s
             `````````````````````````````````````````````````````````````````````````
             ___```````````___```````````___```````````___```````````___```````````___
            /\\``\\`````````/\\``\\`````````/\\__\\`````````/\\``\\`````````/\\``\\`````````/\\``\\
@@ -24,4 +42,5 @@
                            https://github.com/eigenhombre/organa
 
 
--->")
+-->"
+            line3)))

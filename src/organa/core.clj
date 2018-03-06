@@ -80,10 +80,10 @@
 (defn articles-nav-section [file-name
                             site-source-dir
                             available-files
-                            tags]
+                            alltags]
   (div
    `(~(a {:name "allposts"} [])
-     ~(h2 {:class "allposts"} ["Posts "
+     ~(h2 {:class "allposts"} ["Blog Posts "
                                (span {:class "postcount"}
                                      (->> available-files
                                           (remove :static?)
@@ -93,7 +93,7 @@
      ~(p (concat ["Select from below, "
                   (a {:href "blog.html"} "view all posts")
                   ", or choose only posts for:"]
-                 (for [tag (sort tags)]
+                 (for [tag (sort alltags)]
                    (span {:class (format "%s-tag tag" tag)}
                          [(a {:href (str tag "-blog.html")}
                              tag)
@@ -157,7 +157,7 @@
 (defn page-header [css]
   (let [analytics-id (:google-analytics-tracking-id env)
         site-id (:google-analytics-site-id env)]
-    [(html/html-snippet easter-egg)
+    [(html/html-snippet (easter-egg))
      (script {:type "text/javascript"
               :src (str "https://cdnjs.cloudflare.com"
                         "/ajax/libs/mathjax/2.7.2/"
@@ -205,8 +205,9 @@
     [:div#content :h1.title]
     (html/after
         `[~@(concat
-             [(tag-markup tags)
-              (p [(span {:class "author"} ["John Jacobsen"])
+             [(when-not static?
+                (tag-markup (remove #{"static" "draft"} tags)))
+              (p [(span {:class "author"} [(a {:href "/"} ["John Jacobsen"])])
                   (br)
                   (span {:class "article-header-date"}
                         [(tformat/unparse article-date-format date)])])
@@ -440,9 +441,7 @@
           (spit rss-file-path)))))
 
 
-(defn generate-site [remote-host
-                     site-source-dir
-                     target-dir]
+(defn generate-site []
   (let [css (->> "index.garden"
                  (str site-source-dir "/")
                  load-file
@@ -499,15 +498,17 @@
                                                  alltags
                                                  css))))]
       (Thread/sleep 2000)
-      (println "Waiting for threads to finish...")
-      (wait-futures (concat [static-future image-future] futures))
+      (println "Waiting for static copies to finish...")
+      (wait-futures [static-future])
+      (println "Waiting for image future to finish...")
+      (wait-futures [image-future])
+      (println "Waiting for per-page threads to finish...")
+      (wait-futures futures)
       (println "OK"))))
 
 
 (defn update-site []
-  (generate-site remote-host
-                 site-source-dir
-                 target-dir))
+  (generate-site))
 
 
 (defn -main []

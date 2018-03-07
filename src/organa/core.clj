@@ -8,7 +8,7 @@
             [garden.core :refer [css] :rename {css to-css}]
             [hiccup.core :as hiccup]
             [net.cgrand.enlive-html :as html]
-            [organa.dates :refer [article-date-format date-for-org-file]]
+            [organa.dates :as dates]
             [organa.pages :as pages]
             [organa.html :refer :all]
             [organa.egg :refer [easter-egg]]
@@ -117,7 +117,7 @@
              (tag-markup tags)
              [" "
               (span {:class "article-date"}
-                    [(when date (tformat/unparse article-date-format
+                    [(when date (tformat/unparse dates/article-date-format
                                                  date))])]))))
      ~@(when (not= file-name "index")
          [(p [(a {:href "index.html"} [(em ["Home"])])])])
@@ -207,10 +207,11 @@
         `[~@(concat
              [(when-not static?
                 (tag-markup (remove #{"static" "draft"} tags)))
-              (p [(span {:class "author"} [(a {:href "/"} ["John Jacobsen"])])
+              (p [(span {:class "author"} [(a {:href "index.html"}
+                                              ["John Jacobsen"])])
                   (br)
                   (span {:class "article-header-date"}
-                        [(tformat/unparse article-date-format date)])])
+                        [(tformat/unparse dates/article-date-format date)])])
               (p [(a {:href "index.html"} [(strong ["Home"])])
                   " "
                   (a {:href "blog.html"} ["Other Posts"])])]
@@ -441,12 +442,22 @@
           (spit rss-file-path)))))
 
 
-(defn generate-site []
+(defn generate-site [& [proof]]
   (let [css (->> "index.garden"
                  (str site-source-dir "/")
                  load-file
                  to-css)
-        org-files (->> (for [f (available-org-files site-source-dir)]
+        all-org-files (available-org-files site-source-dir)
+        files-to-process (if-not proof
+                           all-org-files
+                           (->> all-org-files
+                                (sort-by (fn [fname]
+                                           (->> (str fname ".html")
+                                                (str site-source-dir "/")
+                                                (dates/date-for-file-by-os))))
+                                reverse
+                                (take 10)))
+        org-files (->> (for [f files-to-process]
                          (let [parsed-html
                                (parse-org-html site-source-dir f)
                                tags (tags-for-org-file parsed-html)
@@ -459,7 +470,7 @@
                                            (drop 3))]
                            {:file-name f
                             ;; FIXME: don't re-parse for dates!
-                            :date (date-for-org-file site-source-dir f)
+                            :date (dates/date-for-org-file site-source-dir f)
                             :title (title-for-org-file parsed-html)
                             :tags tags
                             :parsed parsed
@@ -507,11 +518,7 @@
       (println "OK"))))
 
 
-(defn update-site []
-  (generate-site))
-
-
 (defn -main []
   (println (format  "Creating file://%s/index.html" target-dir))
-  (update-site)
+  (generate-site)
   (shutdown-agents))

@@ -9,15 +9,15 @@
 
 (defn home-body []
   (div {:id "content"}
-       [(h1 "John Jacobsen")
+       [(h1 "John Jacobsen ...")
         (div {:class "figure"}
-             [(a {:href "view-from-skylab-cropped-large.png"}
-                 [(img {:src "view-from-skylab-cropped.jpg"
-                        :class "fullwidth"} [])])
+             [(a {:href "view-from-skylab-cropped-large.png"
+                  :class "img100"}
+                 [(img {:src "view-from-skylab-cropped.jpg"} [])])
               (p {:class "figure-number"
                   :style "margin-top:3px"}
                  ["Clean Air facility as seen from Skylab, South Pole, 1998"])])
-        (p "Hi, I'm an artist, software engineer and former physicist living in
+        (p "... is an artist, software engineer and former physicist living in
                Chicago, Illinois, USA.")
         (div
          [(table

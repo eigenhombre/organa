@@ -90,7 +90,7 @@ with Jekyll.
 
 * License
 
-Copyright © 2016-2017, John Jacobsen. MIT License.
+Copyright © 2016-2018, John Jacobsen. MIT License.
 
 * Disclaimer
 

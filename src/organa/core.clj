@@ -14,7 +14,8 @@
             [organa.egg :refer [easter-egg]]
             [watchtower.core :refer [watcher rate stop-watch on-add
                                      on-modify on-delete file-filter
-                                     extensions]]))
+                                     extensions]]
+            [clojure.string :as str]))
 
 
 (def home-dir (env :home))
@@ -25,6 +26,38 @@
 
 (defn ^:private remove-newlines [m]
   (update-in m [:content] (partial remove (partial = "\n"))))
+
+
+(def ^:private image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG")
+
+
+(defn ^:private gallery-images [galpath]
+  (->> galpath
+       clojure.java.io/file
+       .listFiles
+       (map #(.getName %))
+       (filter (partial re-find image-file-pattern))))
+
+
+(defn inline-gallery [gallery-name]
+  (let [galpath (str site-source-dir
+                     "/galleries/"
+                     gallery-name)]
+    (div {} (for [f (gallery-images galpath)
+                  :let [img-path (format "./galleries/%s/%s"
+                                         gallery-name f)]]
+              (a {:href img-path}
+                 [(img {:src img-path
+                        :class "inline-gallery-thumb"}
+                       [])])))))
+
+
+(defn ^:private execute-organa [m]
+  (-> m
+      :content
+      first
+      read-string
+      eval))
 
 
 (defn ^:private year [] (+ 1900 (.getYear (java.util.Date.))))
@@ -202,6 +235,7 @@
     [:html] remove-newlines
     [:head] remove-newlines
     [:head] (html/append (page-header css))
+    [:pre.src-organa] execute-organa
     [:div#content :h1.title]
     (html/after
         `[~@(concat
@@ -279,9 +313,6 @@
   (sh "mkdir -p " target-dir))
 
 
-(def image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG")
-
-
 (defn stage-site-image-files! [site-source-dir target-dir]
   ;; FIXME: avoid bash hack?
   (doseq [f (->> site-source-dir
@@ -313,12 +344,7 @@
                          .listFiles
                          (map str)
                          (remove #(.contains % "/.")))
-            :let [galfiles
-                  (->> galpath
-                       clojure.java.io/file
-                       .listFiles
-                       (map #(.getName %))
-                       (filter (partial re-find image-file-pattern)))]]
+            :let [galfiles (gallery-images galpath)]]
       (println "Making gallery" galpath)
       (->> (html/at base-enlive-snippet
              [:head] (html/append (page-header css))

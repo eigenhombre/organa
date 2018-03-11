@@ -17,8 +17,9 @@
               (p {:class "figure-number"
                   :style "margin-top:3px"}
                  ["Clean Air facility as seen from Skylab, South Pole, 1998"])])
-        (p "... is an artist, software engineer and former physicist living in
-               Chicago, Illinois, USA.")
+        (p ["... is an artist, software engineer and former physicist living in
+               Chicago, Illinois, USA. "
+            (a {:href "contact.html"} "Contact me.")])
         (div
          [(table
            {:class "frontpage-2col"}
@@ -57,11 +58,16 @@
                             " or "
                             (a {:href "http://toomanysketchbooks.tumblr.com"}
                                "Tumblr")
-                            "."])])])])])])
+                            ".  See also "
+                            (a {:href "bio.html"}
+                               "bio")
+                            " and "
+                            (a {:href "exhibitions.html"}
+                               "exhibitions.")])])])])])])
         (p ["Aside from the above links, this site is primarily
             here to present to you the following blog posts.  Many of
             these were "
-            (a {:href "southpole-blog.html"}
+            (a {:href "southpole.html"}
                ["written at the Geographic South Pole"])
             " between 2007 and 2011."])
         (div {:id "blogposts"} [])]))

@@ -16,7 +16,7 @@
                  [(img {:src "view-from-skylab-cropped.jpg"} [])])
               (p {:class "figure-number"
                   :style "margin-top:3px"}
-                 ["Clean Air facility as seen from Skylab, South Pole, 1998"])])
+                 ["Clean Air facility as seen from Skylab, Amundsen-Scott South Pole Station, Antarctica, 1998"])])
         (p ["... is an artist, software engineer and former physicist living in
                Chicago, Illinois, USA. "
             (a {:href "contact.html"} "Contact me.")])

@@ -1,35 +1,31 @@
 (ns organa.core
   (:gen-class)
-  (:require [clj-time.format :as tformat]
-            [clj-rss.core :as rss]
+  (:require [clj-rss.core :as rss]
+            [clj-time.format :as tformat]
             [clojure.java.shell]
+            [clojure.string :as str]
             [clojure.walk]
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
             [hiccup.core :as hiccup]
             [net.cgrand.enlive-html :as html]
             [organa.dates :as dates]
-            [organa.pages :as pages]
-            [organa.html :refer :all]
             [organa.egg :refer [easter-egg]]
+            [organa.html :refer :all]
+            [organa.pages :as pages]
             [watchtower.core :refer [watcher rate stop-watch on-add
                                      on-modify on-delete file-filter
-                                     extensions]]
-            [clojure.string :as str]))
-
+                                     extensions]]))
 
 (def home-dir (env :home))
 (def remote-host "zerolib.com")
 (def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
 (def target-dir "/tmp/organa")
 
-
 (defn ^:private remove-newlines [m]
   (update-in m [:content] (partial remove (partial = "\n"))))
 
-
 (def ^:private image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG")
-
 
 (defn ^:private gallery-images [galpath]
   (->> galpath
@@ -37,7 +33,6 @@
        .listFiles
        (map #(.getName %))
        (filter (partial re-find image-file-pattern))))
-
 
 (defn inline-gallery [gallery-name]
   (let [galpath (str site-source-dir
@@ -51,7 +46,6 @@
                         :class "inline-gallery-thumb"}
                        [])])))))
 
-
 (defn ^:private execute-organa [m]
   (-> m
       :content
@@ -59,9 +53,7 @@
       read-string
       eval))
 
-
 (defn ^:private year [] (+ 1900 (.getYear (java.util.Date.))))
-
 
 (defn ^:private footer []
   (p {:class "footer"}
@@ -69,7 +61,6 @@
       " Made with "
       (a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
       "."]))
-
 
 (defn title-for-org-file [parsed-html]
   (-> parsed-html
@@ -82,13 +73,38 @@
       (clojure.string/replace #"’" "'")
       (clojure.string/replace #"…" "...")))
 
+;; Org mode exports changed how tags in section headings are handled...
+(defn tags-for-org-file-via-old-span-tag [parsed-html]
+  (-> parsed-html
+      (html/select [:span.tag])
+      first
+      :content
+      (#(mapcat :content %))))
 
+(defn- tags-bracketed-by-colons
+  "
+  (tags-bracketed-by-colons \":foo:baz:\")
+  ;;=> [\"foo\" \"baz\"]
+  (tags-bracketed-by-colons \"adfkljhsadf\")
+  ;;=> nil
+  "
+  [s]
+  (some-> (re-find #"^\:(.+?)\:$" s)
+          second
+          (clojure.string/split
+           #":")))
+
+;; Org mode exports changed how tags in section headings are handled...
+(defn tags-for-org-file-using-h2 [parsed-html]
+  (->> (html/select parsed-html [:h2])
+       (mapcat (comp tags-bracketed-by-colons first :content))
+       (remove nil?)))
+
+;; Org mode exports changed how tags in section headings are handled...
 (defn tags-for-org-file [parsed-html]
-  (mapcat :content
-          (-> parsed-html
-              (html/select [:span.tag])
-              first
-              :content)))
+  (concat
+   (tags-for-org-file-via-old-span-tag parsed-html)
+   (tags-for-org-file-using-h2 parsed-html)))
 
 
 (defn tag-markup [tags]
@@ -111,7 +127,6 @@
 
 
 (defn articles-nav-section [file-name
-                            site-source-dir
                             available-files
                             alltags]
   (div
@@ -220,6 +235,7 @@
     [:head :style] nil
     [:head :script] nil
     [:div#postamble] nil
+    ;; Old org mode:
     ;; Remove dummy header lines containting tags, in first
     ;; sections:
     [:h2#sec-1] (fn [thing]
@@ -230,6 +246,14 @@
                                 :class
                                 (= "tag"))
                     thing))
+    ;; New org mode:
+    ;; Remove dummy header lines containing tags:
+    [:h2] (fn [thing]
+            (when-not (-> thing
+                          :content
+                          first
+                          tags-bracketed-by-colons)
+              thing))
     [:body] remove-newlines
     [:ul] remove-newlines
     [:html] remove-newlines
@@ -257,7 +281,6 @@
                     (when-not (or static? draft?)
                       (prev-next-tags file-name available-files))
                     (articles-nav-section file-name
-                                          site-source-dir
                                           available-files
                                           alltags)
                     (footer))))
@@ -379,7 +402,6 @@
                      ])
            [:div#blogposts] (html/append
                              [(articles-nav-section "index"
-                                                    site-source-dir
                                                     org-files
                                                     tags)
                               (footer)]))
@@ -408,7 +430,6 @@
                       ])
             [:div#blogposts] (html/append
                               [(articles-nav-section "blog"
-                                                     site-source-dir
                                                      tag-posts
                                                      tags)
                                (footer)]))
@@ -467,8 +488,41 @@
                             :description "Posts by John Jacobsen"})
           (spit rss-file-path)))))
 
+(defn- collect-org-files [files-to-process]
+  (->> (for [f files-to-process]
+         (let [parsed-html
+               (parse-org-html site-source-dir f)
+               tags (tags-for-org-file parsed-html)
+               parsed (->> (str f ".html")
+                           (str site-source-dir "/")
+                           slurp
+                           ;; convert to Enlive:
+                           html/html-snippet
+                           ;; remove useless stuff at top:
+                           (drop 3))]
+           {:file-name f
+            ;; FIXME: don't re-parse for dates!
+            :date (dates/date-for-org-file site-source-dir f)
+            :title (title-for-org-file parsed-html)
+            :tags tags
+            :parsed parsed
+            :static? (some #{"static"} tags)
+            :draft? (some #{"draft"} tags)}))
+       (sort-by :date)
+       reverse))
+
+(defn- proof-files-to-process [all-org-files]
+  (->> all-org-files
+       (sort-by (fn [fname]
+                  (->> (str fname ".html")
+                       (str site-source-dir "/")
+                       (dates/date-for-file-by-os))))
+       reverse
+       (take 10)))
 
 (defn generate-site [& [proof]]
+  (println "The party commences....")
+  (ensure-target-dir-exists! target-dir)
   (let [css (->> "index.garden"
                  (str site-source-dir "/")
                  load-file
@@ -476,48 +530,23 @@
         all-org-files (available-org-files site-source-dir)
         files-to-process (if-not proof
                            all-org-files
-                           (->> all-org-files
-                                (sort-by (fn [fname]
-                                           (->> (str fname ".html")
-                                                (str site-source-dir "/")
-                                                (dates/date-for-file-by-os))))
-                                reverse
-                                (take 10)))
-        org-files (->> (for [f files-to-process]
-                         (let [parsed-html
-                               (parse-org-html site-source-dir f)
-                               tags (tags-for-org-file parsed-html)
-                               parsed (->> (str f ".html")
-                                           (str site-source-dir "/")
-                                           slurp
-                                           ;; convert to Enlive:
-                                           html/html-snippet
-                                           ;; remove useless stuff at top:
-                                           (drop 3))]
-                           {:file-name f
-                            ;; FIXME: don't re-parse for dates!
-                            :date (dates/date-for-org-file site-source-dir f)
-                            :title (title-for-org-file parsed-html)
-                            :tags tags
-                            :parsed parsed
-                            :static? (some #{"static"} tags)
-                            :draft? (some #{"draft"} tags)}))
-                       (sort-by :date)
-                       reverse)
+                           (proof-files-to-process all-org-files))
+        _ (println (format "Parsing %d HTML'ed Org files..."
+                           (count files-to-process)))
+        org-files (collect-org-files files-to-process)
         alltags (->> org-files
                      ;; Don't show draft/in progress posts:
                      (remove (comp (partial some #{"draft"}) :tags))
                      (mapcat :tags)
                      (remove #{"static" "draft"})
                      (into #{}))
-        _ (ensure-target-dir-exists! target-dir)
 
-        image-future
-        (future (stage-site-image-files! site-source-dir target-dir))
-        static-future
-        (future
-          (generate-html-for-galleries! site-source-dir css)
-          (stage-site-static-files! site-source-dir target-dir))]
+        image-future (future (stage-site-image-files! site-source-dir
+                                                      target-dir))
+        static-future (future (generate-html-for-galleries! site-source-dir
+                                                            css)
+                              (stage-site-static-files! site-source-dir
+                                                        target-dir))]
 
     (make-home-page site-source-dir org-files alltags css)
     (make-blog-page site-source-dir org-files alltags css)
@@ -526,23 +555,22 @@
     (println "Making RSS feed...")
     (make-rss-feeds site-source-dir "feed.xml" org-files)
     (make-rss-feeds "clojure" site-source-dir "feed.clojure.xml" org-files)
-    (let [futures (doall (for [f org-files]
-                           (future
-                             (process-html-file! site-source-dir
-                                                 target-dir
-                                                 f
-                                                 org-files
-                                                 alltags
-                                                 css))))]
-      (Thread/sleep 2000)
+    (let [page-futures (for [f org-files]
+                         (future
+                           (process-html-file! site-source-dir
+                                               target-dir
+                                               f
+                                               org-files
+                                               alltags
+                                               css)))]
       (println "Waiting for static copies to finish...")
       (wait-futures [static-future])
       (println "Waiting for image future to finish...")
       (wait-futures [image-future])
-      (println "Waiting for per-page threads to finish...")
-      (wait-futures futures)
+      (println (format "Waiting for %d per-page threads to finish..."
+                       (count page-futures)))
+      (wait-futures page-futures)
       (println "OK"))))
-
 
 (defn -main []
   (println (format  "Creating file://%s/index.html" target-dir))

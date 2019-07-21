@@ -1,15 +1,16 @@
 (ns organa.html
   (:require [net.cgrand.enlive-html :as html]))
 
-
-(defmacro deftag [tagname]
-  `(defn ~tagname
-     ([~'content] (~tagname {} ~'content))
-     ([~'attrs ~'content]
-      {:tag ~(keyword tagname)
-       :attrs ~'attrs
-       :content ~'content})))
-
+(defmacro deftag
+  ([fname tagname]
+   `(defn ~fname
+      ([~'content] (~fname {} ~'content))
+      ([~'attrs ~'content]
+       {:tag ~(keyword tagname)
+        :attrs ~'attrs
+        :content ~'content})))
+  ([tagname]
+   `(deftag tagname tagname)))
 
 (deftag a)
 (deftag div)
@@ -32,6 +33,7 @@
 (deftag th)
 (deftag em)
 (deftag ul)
+(deftag meta-tag meta)
 (defn br [] {:tag :br})
 (defn hr [] {:tag :hr})
 

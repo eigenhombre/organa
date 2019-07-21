@@ -214,7 +214,45 @@
              [])
      (link {:href "./favicon.gif"
             :rel "icon"
-            :type "image/gif"} [])
+            :type "image/gif"}
+           [])
+
+     ;; WIP: Responsive website
+     ;; ;; Bootstrap
+     ;; (link {:rel "stylesheet"
+     ;;        :href (str "https://stackpath.bootstrapcdn.com/"
+     ;;                   "bootstrap/4.3.1/css/bootstrap.min.css")
+     ;;        :integrity (str "sha384-ggOyR0iXCbMQv3Xipma34MD+dH/"
+     ;;                        "1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T")
+     ;;        :crossorigin "anonymous"}
+     ;;       [])
+
+     ;; ;; Bootstrap
+     ;; (script {:src "https://code.jquery.com/jquery-3.3.1.slim.min.js"
+     ;;          :integrity (str "sha384-q8i/X+965DzO0rT7abK41JStQIAqVg"
+     ;;                          "RVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo")
+     ;;          :crossorigin "anonymous"})
+     ;; ;; Bootstrap
+     ;; (script {:src (str "https://cdnjs.cloudflare.com/ajax/libs/"
+     ;;                    "popper.js/1.14.7/umd/popper.min.js")
+     ;;          :integrity (str "sha384-UO2eT0CpHqdSJQ6hJty5KVphtP"
+     ;;                          "hzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1")
+     ;;          :crossorigin "anonymous"})
+     ;; ;; Bootstrap
+     ;; (script {:src (str "https://stackpath.bootstrapcdn.com"
+     ;;                    "/bootstrap/4.3.1/js/bootstrap.min.js")
+     ;;          :integrity (str "sha384-JjSmVgyd0p3pXB1rRibZUAY"
+     ;;                          "oIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM")
+     ;;          :crossorigin "anonymous"})
+
+     ;; ;; Bootstrap
+     ;; (meta-tag {:name "viewport"
+     ;;            :content (str "width=device-width, "
+     ;;                          "initial-scale=1, "
+     ;;                          "shrink-to-fit=no")}
+     ;;           [])
+
+     ;; Analytics
      (script {:type "text/javascript"
               :async true
               :src
@@ -374,69 +412,75 @@
              [:body]
              (html/append
               [(div {:class "gallery"}
-                 (for [f galfiles]
-                   (a {:href (str "./" f)}
-                      [(img {:src (str "./" f)
-                             :height "250px"}
-                            [])])))]))
+                    (for [f galfiles]
+                      (a {:href (str "./" f)}
+                         [(img {:src (str "./" f)
+                                :height "250px"}
+                               [])])))]))
            (html/emit*)
            (apply str)
            (spit (str galpath "/index.html"))))))
 
-
 (defn wait-futures [futures]
+  (loop [cnt 0]
+    (let [new-cnt (count (filter realized? futures))]
+      (when-not (every? realized? futures)
+        (Thread/sleep 500)
+        (if (= cnt new-cnt)
+          (recur cnt)
+          (do
+            (println new-cnt "completed...")
+            (recur new-cnt))))))
   (doseq [fu futures]
     (try
       (deref fu)
       (catch Throwable t
         (println t)))))
 
+(defn emit-html-to-file [file-name enlive-tree]
+  (->> enlive-tree
+       (html/emit*)
+       (cons "<!doctype html>\n")
+       (apply str)
+       (spit (str target-dir "/" file-name))))
 
 (defn make-home-page [site-source-dir org-files tags css]
-  (let [out-path (str target-dir "/index.html")]
-    (->> (html/at base-enlive-snippet
-           [:head] (html/append (page-header css))
-           [:body] (html/append
-                    [(pages/home-body)
-                     ;;(div {:class "hspace"} [])
-                     ])
-           [:div#blogposts] (html/append
-                             [(articles-nav-section "index"
-                                                    org-files
-                                                    tags)
-                              (footer)]))
-         (html/emit*)
-         (apply str)
-         (spit out-path))))
-
+  (emit-html-to-file
+   "index.html"
+   (html/at base-enlive-snippet
+     [:head] (html/append (page-header css))
+     [:body] (html/append
+              [(pages/home-body)
+               ;;(div {:class "hspace"} [])
+               ])
+     [:div#blogposts] (html/append
+                       [(articles-nav-section "index"
+                                              org-files
+                                              tags)
+                        (footer)]))))
 
 (defn make-blog-page
   ([site-source-dir org-files tags css]
    (make-blog-page :all site-source-dir org-files tags css))
   ([tag site-source-dir org-files tags css]
    (println (format "Making blog page for tag '%s'" tag))
-   (let [out-path (str target-dir
-                       "/"
-                       (if (= tag :all) "" (str tag "-"))
-                       "blog.html")
-         tag-posts (if (= tag :all)
+   (let [tag-posts (if (= tag :all)
                      org-files
                      (filter (comp (partial some #{tag}) :tags) org-files))]
-     (->> (html/at base-enlive-snippet
-            [:head] (html/append (page-header css))
-            [:body] (html/append
-                     [(pages/blog-body)
-                      ;;(div {:class "hspace"} [])
-                      ])
-            [:div#blogposts] (html/append
-                              [(articles-nav-section "blog"
-                                                     tag-posts
-                                                     tags)
-                               (footer)]))
-          (html/emit*)
-          (apply str)
-          (spit out-path)))))
-
+     (emit-html-to-file
+      (str (if (= tag :all) "" (str tag "-"))
+           "blog.html")
+      (html/at base-enlive-snippet
+        [:head] (html/append (page-header css))
+        [:body] (html/append
+                 [(pages/blog-body)
+                  ;;(div {:class "hspace"} [])
+                  ])
+        [:div#blogposts] (html/append
+                          [(articles-nav-section "blog"
+                                                 tag-posts
+                                                 tags)
+                           (footer)]))))))
 
 (defn html-for-rss
   "
@@ -450,7 +494,6 @@
        (dissoc (into {} x) :content)
        x))
    parsed-html))
-
 
 (defn make-rss-feeds
   ([topic site-source-dir rss-file-name org-files]
@@ -573,6 +616,5 @@
       (println "OK"))))
 
 (defn -main []
-  (println (format  "Creating file://%s/index.html" target-dir))
   (generate-site)
   (shutdown-agents))

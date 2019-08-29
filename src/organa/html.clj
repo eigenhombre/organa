@@ -9,8 +9,8 @@
        {:tag ~(keyword tagname)
         :attrs ~'attrs
         :content ~'content})))
-  ([tagname]
-   `(deftag tagname tagname)))
+  ([tagname_]
+   `(deftag ~tagname_ ~tagname_)))
 
 (deftag a)
 (deftag div)

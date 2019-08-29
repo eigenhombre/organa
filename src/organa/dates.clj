@@ -19,7 +19,6 @@
        first
        to-long))
 
-
 (defn date-for-file-by-os
   "
   Useful links:

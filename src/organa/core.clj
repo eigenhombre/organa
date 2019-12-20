@@ -106,14 +106,12 @@
    (tags-for-org-file-via-old-span-tag parsed-html)
    (tags-for-org-file-using-h2 parsed-html)))
 
-
 (defn tag-markup [tags]
   (interleave
    (repeat " ")
    (for [t tags]
      (span {:class (str t "-tag tag")}
            [(a {:href (str t "-blog.html")} t)]))))
-
 
 (defn rss-links []
   (p ["Subscribe: "
@@ -123,8 +121,11 @@
       " ... or "
       (a {:href "feed.clojure.xml"
           :class "rss"}
-         ["Clojure only"])]))
-
+         ["Clojure only"])
+      " / "
+      (a {:href "feed.lisp.xml"
+          :class "rss"}
+         ["Lisp only"])]))
 
 (defn articles-nav-section [file-name
                             available-files
@@ -171,13 +172,11 @@
          [(p [(a {:href "index.html"} [(em ["Home"])])])])
      ~(rss-links))))
 
-
 (defn position-of-current-file [file-name available-files]
   (->> available-files
        (map-indexed vector)
        (filter (comp (partial = file-name) :file-name second))
        ffirst))
-
 
 (defn prev-next-tags [file-name available-files]
   (let [files (->> available-files
@@ -200,7 +199,6 @@
             (a {:href (str "./" (:file-name next-post) ".html")}
                [(:title next-post)])
             (span (tag-markup (:tags next-post)))])])]))
-
 
 (defn page-header [css]
   (let [analytics-id (:google-analytics-tracking-id env)
@@ -266,7 +264,6 @@
               (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
      (style css)]))
 
-
 (defn transform-enlive [file-name date site-source-dir available-files
                         tags alltags css static? draft? enl]
   (html/at enl
@@ -323,7 +320,6 @@
                                           alltags)
                     (footer))))
 
-
 (defn process-html-file! [site-source-dir
                           target-dir
                           {:keys [file-name date static? draft? parsed tags]}
@@ -344,14 +340,12 @@
        (apply str)
        (spit (str target-dir "/" file-name ".html"))))
 
-
 (defn html-file-exists [org-file-name]
   (-> org-file-name
       (clojure.string/replace
        #"\.org$" ".html")
       clojure.java.io/file
       .exists))
-
 
 (defn available-org-files [site-source-dir]
   (->> site-source-dir
@@ -363,16 +357,13 @@
        (map #(.getName %))
        (map #(.substring % 0 (.lastIndexOf % ".")))))
 
-
 (defn sh [& cmds]
   (apply clojure.java.shell/sh
          (clojure.string/split (apply str cmds) #"\s+")))
 
-
 (defn ensure-target-dir-exists! [target-dir]
   ;; FIXME: do it the Java way
   (sh "mkdir -p " target-dir))
-
 
 (defn stage-site-image-files! [site-source-dir target-dir]
   ;; FIXME: avoid bash hack?
@@ -383,7 +374,6 @@
                  (filter (partial re-find image-file-pattern)))]
     (sh "cp -p " f " " target-dir)))
 
-
 (defn stage-site-static-files! [site-source-dir target-dir]
   (println "Syncing files in static directory...")
   (apply clojure.java.shell/sh
@@ -392,11 +382,9 @@
                   site-source-dir site-source-dir target-dir)
           #" ")))
 
-
 ;; FIXME: Hack-y?
 (def base-enlive-snippet
   (html/html-snippet "<html><head></head><body></body></html>"))
-
 
 (defn generate-html-for-galleries! [site-source-dir css]
   (let [galleries-dir (str site-source-dir "/galleries")]
@@ -598,6 +586,7 @@
     (println "Making RSS feed...")
     (make-rss-feeds site-source-dir "feed.xml" org-files)
     (make-rss-feeds "clojure" site-source-dir "feed.clojure.xml" org-files)
+    (make-rss-feeds "lisp" site-source-dir "feed.lisp.xml" org-files)
     (let [page-futures (for [f org-files]
                          (future
                            (process-html-file! site-source-dir

@@ -19,7 +19,7 @@
 
 (def home-dir (env :home))
 (def remote-host "zerolib.com")
-(def site-source-dir (str home-dir "/Dropbox/org/sites/" remote-host))
+(def site-source-dir (str home-dir "/org/sites/" remote-host))
 (def target-dir "/tmp/organa")
 
 (defn ^:private remove-newlines [m]

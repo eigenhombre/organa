@@ -38,7 +38,10 @@
 (defn hr [] {:tag :hr})
 
 
-(defn parse-org-html [site-source-dir basename]
-  (-> (format "%s/%s.html" site-source-dir basename)
-      slurp
-      html/html-snippet))
+(defn parse-org-html
+  ([html-text]
+   (html/html-snippet html-text))
+  ([source-dir basename]
+   (-> (format "%s/%s.html" source-dir basename)
+       slurp
+       html/html-snippet)))

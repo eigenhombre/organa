@@ -11,40 +11,44 @@
             [net.cgrand.enlive-html :as html]
             [organa.dates :as dates]
             [organa.egg :refer [easter-egg]]
-            [organa.html :refer :all]
+            [organa.config :refer [config]]
+            [organa.html :as h]
             [organa.pages :as pages]
-            [watchtower.core :refer [watcher rate stop-watch on-add
-                                     on-modify on-delete file-filter
-                                     extensions]]))
+            [organa.parse :as parse]
+            [clojure.java.io :as io]))
 
-(def home-dir (env :home))
-(def remote-host "zerolib.com")
-(def site-source-dir (str home-dir "/org/sites/" remote-host))
-(def target-dir "/tmp/organa")
+(def remote-host (:remote-host config))
+(def site-source-dir (:site-source-dir config))
+(def target-dir (:target-dir config))
 
-(defn ^:private remove-newlines [m]
-  (update-in m [:content] (partial remove (partial = "\n"))))
+(defn ^:private remove-newlines
+  "
+  Remove newlines from `:content` portion of Enlive element `el`.
+  "
+  [el]
+  (update-in el [:content] (partial remove (partial = "\n"))))
 
-(def ^:private image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG")
+(def ^:private image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG|\.jpeg")
 
 (defn ^:private gallery-images [galpath]
   (->> galpath
        clojure.java.io/file
        .listFiles
        (map #(.getName %))
+       sort
        (filter (partial re-find image-file-pattern))))
 
 (defn inline-gallery [gallery-name]
   (let [galpath (str site-source-dir
                      "/galleries/"
                      gallery-name)]
-    (div {} (for [f (gallery-images galpath)
-                  :let [img-path (format "./galleries/%s/%s"
-                                         gallery-name f)]]
-              (a {:href img-path}
-                 [(img {:src img-path
-                        :class "inline-gallery-thumb"}
-                       [])])))))
+    (h/div {} (for [f (gallery-images galpath)
+                    :let [img-path (format "./galleries/%s/%s"
+                                           gallery-name f)]]
+                (h/a {:href img-path}
+                     [(h/img {:src img-path
+                              :class "inline-gallery-thumb"}
+                             [])])))))
 
 (defn ^:private execute-organa [m]
   (-> m
@@ -56,22 +60,11 @@
 (defn ^:private year [] (+ 1900 (.getYear (java.util.Date.))))
 
 (defn ^:private footer []
-  (p {:class "footer"}
-     [(format "© 2006-%d John Jacobsen." (year))
-      " Made with "
-      (a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
-      "."]))
-
-(defn title-for-org-file [parsed-html]
-  (-> parsed-html
-      (html/select [:h1.title])
-      first
-      :content
-      first
-      ;; For some reason ’ is rendering strangely in Chrome when
-      ;; synced to zerolib:
-      (clojure.string/replace #"’" "'")
-      (clojure.string/replace #"…" "...")))
+  (h/p {:class "footer"}
+       [(format "© 2006-%d John Jacobsen." (year))
+        " Made with "
+        (h/a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
+        "."]))
 
 ;; Org mode exports changed how tags in section headings are handled...
 (defn tags-for-org-file-via-old-span-tag [parsed-html]
@@ -110,66 +103,66 @@
   (interleave
    (repeat " ")
    (for [t tags]
-     (span {:class (str t "-tag tag")}
-           [(a {:href (str t "-blog.html")} t)]))))
+     (h/span {:class (str t "-tag tag")}
+             [(h/a {:href (str t "-blog.html")} t)]))))
 
 (defn rss-links []
-  (p ["Subscribe: "
-      (a {:href "feed.xml"
-          :class "rss"}
-         ["RSS feed ... all topics)"])
-      " ... or "
-      (a {:href "feed.clojure.xml"
-          :class "rss"}
-         ["Clojure only"])
-      " / "
-      (a {:href "feed.lisp.xml"
-          :class "rss"}
-         ["Lisp only"])]))
+  (h/p ["Subscribe: "
+        (h/a {:href "feed.xml"
+              :class "rss"}
+             ["RSS feed ... all topics)"])
+        " ... or "
+        (h/a {:href "feed.clojure.xml"
+              :class "rss"}
+             ["Clojure only"])
+        " / "
+        (h/a {:href "feed.lisp.xml"
+              :class "rss"}
+             ["Lisp only"])]))
 
 (defn articles-nav-section [file-name
                             available-files
                             alltags]
-  (div
-   `(~(a {:name "allposts"} [])
-     ~(h2 {:class "allposts"} ["Blog Posts "
-                               (span {:class "postcount"}
-                                     (->> available-files
-                                          (remove :static?)
-                                          (remove :draft?)
-                                          count
-                                          (format "(%d)")))])
-     ~(p (concat ["Select from below, "
-                  (a {:href "blog.html"} "view all posts")
-                  ", or choose only posts for:"]
-                 (for [tag (sort alltags)]
-                   (span {:class (format "%s-tag tag" tag)}
-                         [(a {:href (str tag "-blog.html")}
-                             tag)
-                          " "]))))
+  (h/div
+   `(~(h/a {:name "allposts"} [])
+     ~(h/h2 {:class "allposts"} ["Blog Posts "
+                                 (h/span {:class "postcount"}
+                                         (->> available-files
+                                              (remove :static?)
+                                              (remove :draft?)
+                                              count
+                                              (format "(%d)")))])
+     ~(h/p (concat ["Select from below, "
+                    (h/a {:href "blog.html"} "view all posts")
+                    ", or choose only posts for:"]
+                   (for [tag (sort alltags)]
+                     (h/span {:class (format "%s-tag tag" tag)}
+                             [(h/a {:href (str tag "-blog.html")}
+                                   tag)
+                              " "]))))
      ~@(when (not= file-name "index")
-         [(hr)
-          (p [(a {:href "index.html"} [(em ["Home"])])])])
-     ~(hr)
+         [(h/hr)
+          (h/p [(h/a {:href "index.html"} [(h/em ["Home"])])])])
+     ~(h/hr)
      ~@(for [{:keys [file-name date tags]}
              (->> available-files
                   (remove :static?)
                   (remove :draft?)
                   (remove (comp #{file-name} :file-name)))
-             :let [parsed-html (parse-org-html site-source-dir file-name)]]
+             :let [parsed-html (h/parse-org-html site-source-dir file-name)]]
          (when parsed-html
-           (p
+           (h/p
             (concat
-             [(a {:href (str file-name ".html")}
-                 [(title-for-org-file parsed-html)])]
+             [(h/a {:href (str file-name ".html")}
+                   [(parse/title-for-org-file parsed-html)])]
              " "
              (tag-markup tags)
              [" "
-              (span {:class "article-date"}
-                    [(when date (tformat/unparse dates/article-date-format
-                                                 date))])]))))
+              (h/span {:class "article-date"}
+                      [(when date (tformat/unparse dates/article-date-format
+                                                   date))])]))))
      ~@(when (not= file-name "index")
-         [(p [(a {:href "index.html"} [(em ["Home"])])])])
+         [(h/p [(h/a {:href "index.html"} [(h/em ["Home"])])])])
      ~(rss-links))))
 
 (defn position-of-current-file [file-name available-files]
@@ -187,33 +180,33 @@
         next-post (get files (dec current-pos))
         prev-post (get files (inc current-pos))]
     [(when prev-post
-       (p {:class "prev-next-post"}
-          [(span {:class "post-nav-earlier-later"}
-                 ["Earlier post "])
-           (a {:href (str "./" (:file-name prev-post) ".html")}
-              [(:title prev-post)])
-           (span (tag-markup (:tags prev-post)))]))
+       (h/p {:class "prev-next-post"}
+            [(h/span {:class "post-nav-earlier-later"}
+                     ["Earlier post "])
+             (h/a {:href (str "./" (:file-name prev-post) ".html")}
+                  [(:title prev-post)])
+             (h/span (tag-markup (:tags prev-post)))]))
      (when next-post
-       [(p {:class "prev-next-post"}
-           [(span {:class "post-nav-earlier-later"} ["Later post "])
-            (a {:href (str "./" (:file-name next-post) ".html")}
-               [(:title next-post)])
-            (span (tag-markup (:tags next-post)))])])]))
+       [(h/p {:class "prev-next-post"}
+             [(h/span {:class "post-nav-earlier-later"} ["Later post "])
+              (h/a {:href (str "./" (:file-name next-post) ".html")}
+                   [(:title next-post)])
+              (h/span (tag-markup (:tags next-post)))])])]))
 
 (defn page-header [css]
   (let [analytics-id (:google-analytics-tracking-id env)
         site-id (:google-analytics-site-id env)]
     [(html/html-snippet (easter-egg))
-     (script {:type "text/javascript"
-              :src (str "https://cdnjs.cloudflare.com"
-                        "/ajax/libs/mathjax/2.7.2/"
-                        "MathJax.js"
-                        "?config=TeX-MML-AM_CHTML")}
+     (h/script {:type "text/javascript"
+                :src (str "https://cdnjs.cloudflare.com"
+                          "/ajax/libs/mathjax/2.7.2/"
+                          "MathJax.js"
+                          "?config=TeX-MML-AM_CHTML")}
+               [])
+     (h/link {:href "./favicon.gif"
+              :rel "icon"
+              :type "image/gif"}
              [])
-     (link {:href "./favicon.gif"
-            :rel "icon"
-            :type "image/gif"}
-           [])
 
      ;; WIP: Responsive website
      ;; ;; Bootstrap
@@ -251,18 +244,18 @@
      ;;           [])
 
      ;; Analytics
-     (script {:type "text/javascript"
-              :async true
-              :src
-              (format "https://www.googletagmanager.com/gtag/js?id=UA-%s-%s"
-                      analytics-id site-id)}
-             [])
-     (script {:type "text/javascript"}
-             ["window.dataLayer = window.dataLayer || [];"
-              "function gtag(){dataLayer.push(arguments);}"
-              "gtag('js', new Date());"
-              (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
-     (style css)]))
+     (h/script {:type "text/javascript"
+                :async true
+                :src
+                (format "https://www.googletagmanager.com/gtag/js?id=UA-%s-%s"
+                        analytics-id site-id)}
+               [])
+     (h/script {:type "text/javascript"}
+               ["window.dataLayer = window.dataLayer || [];"
+                "function gtag(){dataLayer.push(arguments);}"
+                "gtag('js', new Date());"
+                (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
+     (h/style css)]))
 
 (defn transform-enlive [file-name date site-source-dir available-files
                         tags alltags css static? draft? enl]
@@ -300,19 +293,19 @@
         `[~@(concat
              [(when-not static?
                 (tag-markup (remove #{"static" "draft"} tags)))
-              (p [(span {:class "author"} [(a {:href "index.html"}
-                                              ["John Jacobsen"])])
-                  (br)
-                  (span {:class "article-header-date"}
-                        [(tformat/unparse dates/article-date-format date)])])
-              (p [(a {:href "index.html"} [(strong ["Home"])])
-                  " "
-                  (a {:href "blog.html"} ["Other Posts"])])]
+              (h/p [(h/span {:class "author"} [(h/a {:href "index.html"}
+                                                    ["John Jacobsen"])])
+                    (h/br)
+                    (h/span {:class "article-header-date"}
+                            [(tformat/unparse dates/article-date-format date)])])
+              (h/p [(h/a {:href "index.html"} [(h/strong ["Home"])])
+                    " "
+                    (h/a {:href "blog.html"} ["Other Posts"])])]
              (when-not (or static? draft?)
                (prev-next-tags file-name available-files))
-             [(div {:class "hspace"} [])])])
+             [(h/div {:class "hspace"} [])])])
     [:div#content] (html/append
-                    (div {:class "hspace"} [])
+                    (h/div {:class "hspace"} [])
                     (when-not (or static? draft?)
                       (prev-next-tags file-name available-files))
                     (articles-nav-section file-name
@@ -350,7 +343,8 @@
 (defn available-org-files [site-source-dir]
   (->> site-source-dir
        clojure.java.io/file
-       file-seq
+       .listFiles
+       ;;file-seq
        (filter (comp #(.endsWith % ".org") str))
        (filter html-file-exists)
        (remove (comp #(.contains % ".#") str))
@@ -399,12 +393,12 @@
              [:head] (html/append (page-header css))
              [:body]
              (html/append
-              [(div {:class "gallery"}
-                    (for [f galfiles]
-                      (a {:href (str "./" f)}
-                         [(img {:src (str "./" f)
-                                :height "250px"}
-                               [])])))]))
+              [(h/div {:class "gallery"}
+                      (for [f galfiles]
+                        (h/a {:href (str "./" f)}
+                             [(h/img {:src (str "./" f)
+                                      :height "250px"}
+                                     [])])))]))
            (html/emit*)
            (apply str)
            (spit (str galpath "/index.html"))))))
@@ -522,7 +516,7 @@
 (defn- collect-org-files [files-to-process]
   (->> (for [f files-to-process]
          (let [parsed-html
-               (parse-org-html site-source-dir f)
+               (h/parse-org-html site-source-dir f)
                tags (tags-for-org-file parsed-html)
                parsed (->> (str f ".html")
                            (str site-source-dir "/")
@@ -534,7 +528,7 @@
            {:file-name f
             ;; FIXME: don't re-parse for dates!
             :date (dates/date-for-org-file site-source-dir f)
-            :title (title-for-org-file parsed-html)
+            :title (parse/title-for-org-file parsed-html)
             :tags tags
             :parsed parsed
             :static? (some #{"static"} tags)
@@ -551,7 +545,7 @@
        reverse
        (take 10)))
 
-(defn generate-site [& [proof]]
+(defn generate-site [{:keys [target-dir proof] :as config}]
   (println "The party commences....")
   (ensure-target-dir-exists! target-dir)
   (let [css (->> "index.garden"
@@ -605,5 +599,12 @@
       (println "OK"))))
 
 (defn -main []
-  (generate-site)
+  (generate-site config)
   (shutdown-agents))
+
+(comment
+  (generate-site (assoc config :proof true))
+  (clojure.java.shell/sh "open" "/tmp/organa/index.html")
+  (require '[marginalia.core :as marg])
+  (marg/run-marginalia ["src/organa/core.clj"])
+  (clojure.java.shell/sh "open" "docs/uberdoc.html"))

@@ -1,21 +1,22 @@
 (ns organa.core
   (:gen-class)
-  (:require [clj-rss.core :as rss]
-            [clj-time.format :as tformat]
+  (:require [clj-time.format :as tformat]
+            [clojure.java.io :as io]
             [clojure.java.shell]
             [clojure.string :as str]
             [clojure.walk]
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
-            [hiccup.core :as hiccup]
             [net.cgrand.enlive-html :as html]
+            [organa.config :refer [config]]
             [organa.dates :as dates]
             [organa.egg :refer [easter-egg]]
-            [organa.config :refer [config]]
+            [organa.gallery :as gal]
             [organa.html :as h]
+            [organa.image :as img]
             [organa.pages :as pages]
             [organa.parse :as parse]
-            [clojure.java.io :as io]))
+            [organa.rss :as rss]))
 
 (def remote-host (:remote-host config))
 (def site-source-dir (:site-source-dir config))
@@ -27,28 +28,6 @@
   "
   [el]
   (update-in el [:content] (partial remove (partial = "\n"))))
-
-(def ^:private image-file-pattern #"\.png|\.gif$|\.jpg|\.JPG|\.jpeg")
-
-(defn ^:private gallery-images [galpath]
-  (->> galpath
-       clojure.java.io/file
-       .listFiles
-       (map #(.getName %))
-       sort
-       (filter (partial re-find image-file-pattern))))
-
-(defn inline-gallery [gallery-name]
-  (let [galpath (str site-source-dir
-                     "/galleries/"
-                     gallery-name)]
-    (h/div {} (for [f (gallery-images galpath)
-                    :let [img-path (format "./galleries/%s/%s"
-                                           gallery-name f)]]
-                (h/a {:href img-path}
-                     [(h/img {:src img-path
-                              :class "inline-gallery-thumb"}
-                             [])])))))
 
 (defn ^:private execute-organa [m]
   (-> m
@@ -106,20 +85,6 @@
      (h/span {:class (str t "-tag tag")}
              [(h/a {:href (str t "-blog.html")} t)]))))
 
-(defn rss-links []
-  (h/p ["Subscribe: "
-        (h/a {:href "feed.xml"
-              :class "rss"}
-             ["RSS feed ... all topics)"])
-        " ... or "
-        (h/a {:href "feed.clojure.xml"
-              :class "rss"}
-             ["Clojure only"])
-        " / "
-        (h/a {:href "feed.lisp.xml"
-              :class "rss"}
-             ["Lisp only"])]))
-
 (defn articles-nav-section [file-name
                             available-files
                             alltags]
@@ -163,7 +128,7 @@
                                                    date))])]))))
      ~@(when (not= file-name "index")
          [(h/p [(h/a {:href "index.html"} [(h/em ["Home"])])])])
-     ~(rss-links))))
+     ~(rss/rss-links))))
 
 (defn position-of-current-file [file-name available-files]
   (->> available-files
@@ -257,7 +222,7 @@
                 (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
      (h/style css)]))
 
-(defn transform-enlive [file-name date site-source-dir available-files
+(defn transform-enlive [file-name date available-files
                         tags alltags css static? draft? enl]
   (html/at enl
     [:head :style] nil
@@ -313,8 +278,7 @@
                                           alltags)
                     (footer))))
 
-(defn process-html-file! [site-source-dir
-                          target-dir
+(defn process-html-file! [target-dir
                           {:keys [file-name date static? draft? parsed tags]}
                           available-files
                           alltags
@@ -322,7 +286,6 @@
   (->> parsed
        (transform-enlive file-name
                          date
-                         site-source-dir
                          available-files
                          tags
                          alltags
@@ -365,7 +328,7 @@
                  clojure.java.io/file
                  .listFiles
                  (map #(.toString %))
-                 (filter (partial re-find image-file-pattern)))]
+                 (filter (partial re-find img/image-file-pattern)))]
     (sh "cp -p " f " " target-dir)))
 
 (defn stage-site-static-files! [site-source-dir target-dir]
@@ -387,7 +350,7 @@
                          .listFiles
                          (map str)
                          (remove #(.contains % "/.")))
-            :let [galfiles (gallery-images galpath)]]
+            :let [galfiles (gal/gallery-images galpath)]]
       (println "Making gallery" galpath)
       (->> (html/at base-enlive-snippet
              [:head] (html/append (page-header css))
@@ -426,7 +389,7 @@
        (apply str)
        (spit (str target-dir "/" file-name))))
 
-(defn make-home-page [site-source-dir org-files tags css]
+(defn make-home-page [org-files tags css]
   (emit-html-to-file
    "index.html"
    (html/at base-enlive-snippet
@@ -442,9 +405,9 @@
                         (footer)]))))
 
 (defn make-blog-page
-  ([site-source-dir org-files tags css]
-   (make-blog-page :all site-source-dir org-files tags css))
-  ([tag site-source-dir org-files tags css]
+  ([org-files tags css]
+   (make-blog-page :all org-files tags css))
+  ([tag org-files tags css]
    (println (format "Making blog page for tag '%s'" tag))
    (let [tag-posts (if (= tag :all)
                      org-files
@@ -463,55 +426,6 @@
                                                  tag-posts
                                                  tags)
                            (footer)]))))))
-
-(defn html-for-rss
-  "
-  Remove JavaScript and CSS bits from Org-generated HTML for RSS feed.
-  "
-  [parsed-html]
-  (clojure.walk/prewalk
-   (fn [x]
-     (if (and (map? x)
-              (#{"text/css" "text/javascript"} (get-in x [:attrs :type])))
-       (dissoc (into {} x) :content)
-       x))
-   parsed-html))
-
-(defn make-rss-feeds
-  ([topic site-source-dir rss-file-name org-files]
-   (make-rss-feeds site-source-dir
-                   rss-file-name
-                   (filter (comp (partial some #{topic})
-                                 :tags)
-                           org-files)))
-  ([site-source-dir rss-file-name org-files]
-   (let [rss-file-path (str target-dir "/" rss-file-name)
-         posts-for-feed (->> org-files
-                             (remove :static?)
-                             (remove :draft?)
-                             (take 20))
-         feed-items (for [f posts-for-feed
-                          :let [file-name (:file-name f)
-                                local-path (format "%s/%s.html"
-                                                   site-source-dir
-                                                   file-name)
-                                link-path (format "http://%s/%s.html"
-                                                  remote-host
-                                                  file-name)]]
-                      {:title (:title f)
-                       :link link-path
-                       :pubDate (.toDate (:date f))
-                       :description (format "<![CDATA[ %s ]]>"
-                                            (->> f
-                                                 :parsed
-                                                 html-for-rss
-                                                 html/emit*
-                                                 (apply str)))})]
-     (->> feed-items
-          (rss/channel-xml {:title "John Jacobsen"
-                            :link (str "http://" remote-host)
-                            :description "Posts by John Jacobsen"})
-          (spit rss-file-path)))))
 
 (defn- collect-org-files [files-to-process]
   (->> (for [f files-to-process]
@@ -545,7 +459,7 @@
        reverse
        (take 10)))
 
-(defn generate-site [{:keys [target-dir proof] :as config}]
+(defn generate-site [{:keys [target-dir proof?]}]
   (println "The party commences....")
   (ensure-target-dir-exists! target-dir)
   (let [css (->> "index.garden"
@@ -553,7 +467,7 @@
                  load-file
                  to-css)
         all-org-files (available-org-files site-source-dir)
-        files-to-process (if-not proof
+        files-to-process (if-not proof?
                            all-org-files
                            (proof-files-to-process all-org-files))
         _ (println (format "Parsing %d HTML'ed Org files..."
@@ -573,18 +487,17 @@
                               (stage-site-static-files! site-source-dir
                                                         target-dir))]
 
-    (make-home-page site-source-dir org-files alltags css)
-    (make-blog-page site-source-dir org-files alltags css)
+    (make-home-page org-files alltags css)
+    (make-blog-page org-files alltags css)
     (doseq [tag alltags]
-      (make-blog-page tag site-source-dir org-files alltags css))
+      (make-blog-page tag org-files alltags css))
     (println "Making RSS feed...")
-    (make-rss-feeds site-source-dir "feed.xml" org-files)
-    (make-rss-feeds "clojure" site-source-dir "feed.clojure.xml" org-files)
-    (make-rss-feeds "lisp" site-source-dir "feed.lisp.xml" org-files)
+    (rss/make-rss-feeds "feed.xml" org-files)
+    (rss/make-rss-feeds "clojure" "feed.clojure.xml" org-files)
+    (rss/make-rss-feeds "lisp" "feed.lisp.xml" org-files)
     (let [page-futures (for [f org-files]
                          (future
-                           (process-html-file! site-source-dir
-                                               target-dir
+                           (process-html-file! target-dir
                                                f
                                                org-files
                                                alltags
@@ -603,7 +516,7 @@
   (shutdown-agents))
 
 (comment
-  (generate-site (assoc config :proof true))
+  (generate-site (assoc config :proof? true))
   (clojure.java.shell/sh "open" "/tmp/organa/index.html")
   (require '[marginalia.core :as marg])
   (marg/run-marginalia ["src/organa/core.clj"])

@@ -1,5 +1,6 @@
 (ns organa.parse
   (:require [clojure.string :as string]
+            [clojure.walk :as walk]
             [net.cgrand.enlive-html :as html]))
 
 (defn title-for-org-file [parsed-html]
@@ -38,14 +39,16 @@
            (mapcat vec)
            (map first)
            (apply hash-map)
-           clojure.walk/keywordize-keys
+           walk/keywordize-keys
            clean-empty-string-values))
 
 (comment
-  (->>
-   "/Users/jacobsen/org/sites/zerolib.com/artworks/crows-and-civilization/meta.html"
-   slurp
-   organa.html/parse-org-html
-   parsed-org-html->table-metadata)
+  (require '[organa.html :as h])
+  (->> (str "/Users/jacobsen/org/sites/zerolib.com/"
+            "artworks/crows-and-civilization/meta.html")
+       slurp
+       h/parse-org-html
+       parsed-org-html->table-metadata)
   ;;=>
-  '{:width " ", :height " ", :medium "Oil on Linen", :year "2019", :price "2000"})
+  '{:width " ", :height " ",
+    :medium "Oil on Linen", :year "2019", :price "2000"})

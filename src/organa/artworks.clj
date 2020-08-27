@@ -112,7 +112,7 @@
   (hiccup/html
    [:div
     [:table
-     (for [{:keys [title year directory artworks-file html-path] :as r}
+     (for [{:keys [title year html-path] :as r}
            artwork-records]
        [:tr
         [:td [:div
@@ -124,7 +124,8 @@
               [:tr [:td (or year "")]]]]])]]))
 
 (comment
-  (clojure.java.shell/sh "open" artworks-dir)
+  (require '[clojure.java.shell :as shell])
+  (shell/sh "open" artworks-dir)
 
   (->> (artworks-dirs)
        (pmap artworks-for-dir)

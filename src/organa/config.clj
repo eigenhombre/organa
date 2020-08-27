@@ -2,10 +2,10 @@
   "
   Generate map of configuration values.
   "
-  (:require [environ.core :refer [env]]))
+  (:require [environ.core :as env]))
 
 (def config
-  (let [home-dir (env :home)
+  (let [home-dir (env/env :home)
         remote-host "zerolib.com"]
     {:home-dir home-dir
      :remote-host remote-host
@@ -13,6 +13,7 @@
      :target-dir "/tmp/organa"}))
 
 (comment
-  (require '[marginalia.core :as marg])
+  (require '[marginalia.core :as marg]
+           '[clojure.java.shell :as shell])
   (marg/run-marginalia ["src/organa/config.clj"])
-  (clojure.java.shell/sh "open" "docs/uberdoc.html"))
+  (shell/sh "open" "docs/uberdoc.html"))

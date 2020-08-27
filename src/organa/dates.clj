@@ -1,13 +1,12 @@
 (ns organa.dates
   (:require [net.cgrand.enlive-html :as html]
             [clj-time.coerce :refer [from-long to-long]]
+            [clojure.java.io :as io]
             [clj-time.format :as tformat])
   (:import [java.nio.file Files]
            [java.nio.file.attribute PosixFileAttributeView]))
 
-
 (def article-date-format (tformat/formatter "EEEE, MMMM d, yyyy"))
-
 
 (defn date-for-org-file-by-header [path]
   (->> path
@@ -28,7 +27,7 @@
   "
   [path]
   (-> path
-      clojure.java.io/file
+      io/file
       .toPath
       (Files/getFileAttributeView PosixFileAttributeView
                                   (into-array java.nio.file.LinkOption
@@ -36,7 +35,6 @@
       .readAttributes
       .creationTime
       .toMillis))
-
 
 (defn date-for-org-file [site-source-dir basename]
   (let [path (format "%s/%s.html" site-source-dir basename)]

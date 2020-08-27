@@ -1,0 +1,24 @@
+{:linters
+ {:unresolved-symbol
+  {:exclude [a
+             div
+             h1
+             h2
+             img
+             li
+             link
+             meta-tag
+             p
+             pre
+             script
+             span
+             strong
+             style
+             table
+             tbody
+             thead
+             tr
+             td
+             th
+             em
+             ul]}}}

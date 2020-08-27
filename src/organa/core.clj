@@ -87,7 +87,8 @@
 
 (defn articles-nav-section [file-name
                             available-files
-                            alltags]
+                            alltags
+                            parsed-org-file-map]
   (h/div
    `(~(h/a {:name "allposts"} [])
      ~(h/h2 {:class "allposts"} ["Blog Posts "
@@ -114,7 +115,10 @@
                   (remove :static?)
                   (remove :draft?)
                   (remove (comp #{file-name} :file-name)))
-             :let [parsed-html (h/parse-org-html site-source-dir file-name)]]
+             :let [parsed-html
+                   (->> file-name
+                        parsed-org-file-map
+                        :parsed-html)]]
          (when parsed-html
            (h/p
             (concat
@@ -222,71 +226,76 @@
                 (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
      (h/style css)]))
 
-(defn transform-enlive [file-name date available-files
+(defn transform-enlive [file-name date available-files parsed-org-file-map
                         tags alltags css static? draft? enl]
-  (html/at enl
-    [:head :style] nil
-    [:head :script] nil
-    [:div#postamble] nil
-    ;; Old org mode:
-    ;; Remove dummy header lines containting tags, in first
-    ;; sections:
-    [:h2#sec-1] (fn [thing]
-                  (when-not (-> thing
-                                :content
-                                second
-                                :attrs
-                                :class
-                                (= "tag"))
-                    thing))
-    ;; New org mode:
-    ;; Remove dummy header lines containing tags:
-    [:h2] (fn [thing]
-            (when-not (-> thing
-                          :content
-                          first
-                          tags-bracketed-by-colons)
-              thing))
-    [:body] remove-newlines
-    [:ul] remove-newlines
-    [:html] remove-newlines
-    [:head] remove-newlines
-    [:head] (html/append (page-header css))
-    [:pre.src-organa] execute-organa
-    [:div#content :h1.title]
-    (html/after
-        `[~@(concat
-             [(when-not static?
-                (tag-markup (remove #{"static" "draft"} tags)))
-              (h/p [(h/span {:class "author"} [(h/a {:href "index.html"}
-                                                    ["John Jacobsen"])])
-                    (h/br)
-                    (h/span {:class "article-header-date"}
-                            [(tformat/unparse dates/article-date-format date)])])
-              (h/p [(h/a {:href "index.html"} [(h/strong ["Home"])])
-                    " "
-                    (h/a {:href "blog.html"} ["Other Posts"])])]
-             (when-not (or static? draft?)
-               (prev-next-tags file-name available-files))
-             [(h/div {:class "hspace"} [])])])
-    [:div#content] (html/append
-                    (h/div {:class "hspace"} [])
-                    (when-not (or static? draft?)
-                      (prev-next-tags file-name available-files))
-                    (articles-nav-section file-name
+  (let [prev-next-tags (when-not (or static? draft?)
+                         (prev-next-tags file-name available-files))
+        nav-section (articles-nav-section file-name
                                           available-files
-                                          alltags)
-                    (footer))))
+                                          alltags
+                                          parsed-org-file-map)]
+    (html/at enl
+      [:head :style] nil
+      [:head :script] nil
+      [:div#postamble] nil
+      ;; Old org mode:
+      ;; Remove dummy header lines containting tags, in first
+      ;; sections:
+      [:h2#sec-1] (fn [thing]
+                    (when-not (-> thing
+                                  :content
+                                  second
+                                  :attrs
+                                  :class
+                                  (= "tag"))
+                      thing))
+      ;; New org mode:
+      ;; Remove dummy header lines containing tags:
+      [:h2] (fn [thing]
+              (when-not (-> thing
+                            :content
+                            first
+                            tags-bracketed-by-colons)
+                thing))
+      [:body] remove-newlines
+      [:ul] remove-newlines
+      [:html] remove-newlines
+      [:head] remove-newlines
+      [:head] (html/append (page-header css))
+      [:pre.src-organa] execute-organa
+      [:div#content :h1.title]
+      (html/after
+          `[~@(concat
+               [(when-not static?
+                  (tag-markup (remove #{"static" "draft"} tags)))
+                (h/p [(h/span {:class "author"} [(h/a {:href "index.html"}
+                                                      ["John Jacobsen"])])
+                      (h/br)
+                      (h/span {:class "article-header-date"}
+                              [(tformat/unparse dates/article-date-format
+                                                date)])])
+                (h/p [(h/a {:href "index.html"} [(h/strong ["Home"])])
+                      " "
+                      (h/a {:href "blog.html"} ["Other Posts"])])]
+               prev-next-tags
+               [(h/div {:class "hspace"} [])])])
+      [:div#content] (html/append
+                      (h/div {:class "hspace"} [])
+                      prev-next-tags
+                      nav-section
+                      (footer)))))
 
 (defn process-html-file! [target-dir
                           {:keys [file-name date static? draft? parsed tags]}
                           available-files
                           alltags
-                          css]
+                          css
+                          parsed-org-file-map]
   (->> parsed
        (transform-enlive file-name
                          date
                          available-files
+                         parsed-org-file-map
                          tags
                          alltags
                          css
@@ -389,7 +398,7 @@
        (apply str)
        (spit (str target-dir "/" file-name))))
 
-(defn make-home-page [org-files tags css]
+(defn make-home-page [org-files parsed-org-file-map tags css]
   (emit-html-to-file
    "index.html"
    (html/at base-enlive-snippet
@@ -401,13 +410,14 @@
      [:div#blogposts] (html/append
                        [(articles-nav-section "index"
                                               org-files
-                                              tags)
+                                              tags
+                                              parsed-org-file-map)
                         (footer)]))))
 
 (defn make-blog-page
-  ([org-files tags css]
-   (make-blog-page :all org-files tags css))
-  ([tag org-files tags css]
+  ([org-files parsed-org-file-map tags css]
+   (make-blog-page :all org-files parsed-org-file-map tags css))
+  ([tag org-files parsed-org-file-map tags css]
    (println (format "Making blog page for tag '%s'" tag))
    (let [tag-posts (if (= tag :all)
                      org-files
@@ -424,31 +434,34 @@
         [:div#blogposts] (html/append
                           [(articles-nav-section "blog"
                                                  tag-posts
-                                                 tags)
+                                                 tags
+                                                 parsed-org-file-map)
                            (footer)]))))))
 
-(defn- collect-org-files [files-to-process]
-  (->> (for [f files-to-process]
-         (let [parsed-html
-               (h/parse-org-html site-source-dir f)
-               tags (tags-for-org-file parsed-html)
-               parsed (->> (str f ".html")
-                           (str site-source-dir "/")
-                           slurp
-                           ;; convert to Enlive:
-                           html/html-snippet
-                           ;; remove useless stuff at top:
-                           (drop 3))]
-           {:file-name f
-            ;; FIXME: don't re-parse for dates!
-            :date (dates/date-for-org-file site-source-dir f)
-            :title (parse/title-for-org-file parsed-html)
-            :tags tags
-            :parsed parsed
-            :static? (some #{"static"} tags)
-            :draft? (some #{"draft"} tags)}))
-       (sort-by :date)
-       reverse))
+(defn- files->parsed [files-to-process]
+  (into {}
+        (for [f files-to-process]
+          (let [parsed-html
+                (h/parse-org-html site-source-dir f)
+                tags (tags-for-org-file parsed-html)
+                parsed (->> (str f ".html")
+                            (str site-source-dir "/")
+                            slurp
+                            ;; convert to Enlive:
+                            html/html-snippet
+                            ;; remove useless stuff at top:
+                            (drop 3))]
+            [f
+             ;; FIXME: It's hacky to have f in both places
+             {:file-name f
+              ;; FIXME: don't re-parse for dates!
+              :date (dates/date-for-org-file site-source-dir f)
+              :title (parse/title-for-org-file parsed-html)
+              :tags tags
+              :parsed parsed
+              :parsed-html parsed-html
+              :static? (some #{"static"} tags)
+              :draft? (some #{"draft"} tags)}]))))
 
 (defn- proof-files-to-process [all-org-files]
   (->> all-org-files
@@ -472,7 +485,11 @@
                            (proof-files-to-process all-org-files))
         _ (println (format "Parsing %d HTML'ed Org files..."
                            (count files-to-process)))
-        org-files (collect-org-files files-to-process)
+        parsed-org-file-map (files->parsed files-to-process)
+        org-files (->> parsed-org-file-map
+                       vals
+                       (sort-by :date)
+                       reverse)
         alltags (->> org-files
                      ;; Don't show draft/in progress posts:
                      (remove (comp (partial some #{"draft"}) :tags))
@@ -487,10 +504,10 @@
                               (stage-site-static-files! site-source-dir
                                                         target-dir))]
 
-    (make-home-page org-files alltags css)
-    (make-blog-page org-files alltags css)
+    (make-home-page org-files parsed-org-file-map alltags css)
+    (make-blog-page org-files parsed-org-file-map alltags css)
     (doseq [tag alltags]
-      (make-blog-page tag org-files alltags css))
+      (make-blog-page tag org-files parsed-org-file-map alltags css))
     (println "Making RSS feed...")
     (rss/make-rss-feeds "feed.xml" org-files)
     (rss/make-rss-feeds "clojure" "feed.clojure.xml" org-files)
@@ -501,7 +518,8 @@
                                                f
                                                org-files
                                                alltags
-                                               css)))]
+                                               css
+                                               parsed-org-file-map)))]
       (println "Waiting for static copies to finish...")
       (wait-futures [static-future])
       (println "Waiting for image future to finish...")

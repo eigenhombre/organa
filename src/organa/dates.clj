@@ -40,3 +40,5 @@
   (let [path (format "%s/%s.html" site-source-dir basename)]
     (from-long (or (date-for-org-file-by-header path)
                    (date-for-file-by-os path)))))
+
+(defn year [] (+ 1900 (.getYear (java.util.Date.))))

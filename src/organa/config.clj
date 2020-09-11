@@ -6,7 +6,7 @@
 
 (def config
   (let [home-dir (env/env :home)
-        remote-host "zerolib.com"]
+        remote-host "johnj.com"]
     {:home-dir home-dir
      :remote-host remote-host
      :site-source-dir (str home-dir "/org/sites/" remote-host)

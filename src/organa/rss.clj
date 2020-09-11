@@ -60,7 +60,7 @@
   (h/p ["Subscribe: "
         (h/a {:href "feed.xml"
               :class "rss"}
-             ["RSS feed ... all topics)"])
+             ["RSS feed ... all topics"])
         " ... or "
         (h/a {:href "feed.clojure.xml"
               :class "rss"}

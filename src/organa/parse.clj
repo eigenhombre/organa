@@ -44,7 +44,7 @@
 
 (comment
   (require '[organa.html :as h])
-  (->> (str "/Users/jacobsen/org/sites/zerolib.com/"
+  (->> (str "/Users/jacobsen/org/sites/johnj.com/"
             "artworks/crows-and-civilization/meta.html")
        slurp
        h/parse-org-html

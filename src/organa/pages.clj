@@ -60,9 +60,9 @@
                      "my recent work on "
                      (h/a {:href "http://instagram.com/eigenhombre"}
                           "Instagram")
-                     " or "
-                     (h/a {:href "http://toomanysketchbooks.tumblr.com"}
-                          "Tumblr")
+                     ;; " or "
+                     ;; (h/a {:href "http://toomanysketchbooks.tumblr.com"}
+                     ;;      "Tumblr")
                      ".  See also "
                      (h/a {:href "bio.html"}
                           "bio")

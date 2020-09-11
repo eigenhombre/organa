@@ -15,5 +15,3 @@
        (map (partial str "\\."))
        (clojure.string/join "|")
        re-pattern))
-
-

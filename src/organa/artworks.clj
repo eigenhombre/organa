@@ -5,6 +5,7 @@
             [environ.core :refer [env]]
             [hiccup.core :as hiccup]
             [mikera.image.core :as image]
+            [organa.config :as config]
             [organa.html :as html]
             [organa.io :as oio]
             [organa.parse :as parse]))
@@ -12,13 +13,10 @@
 ;; EXPERIMENTAL
 
 ;; FIXME: DRY vs. core.clj (move to config.clj after creating that)
-(def home-dir (env :home))
-(def remote-host "zerolib.com")
-(def orgdir (str home-dir "/org"))
-(def site-source-dir (str orgdir "/sites/" remote-host))
+(def site-source-dir (:site-source-dir config/config))
 (def image-file-extensions #{"png" "gif" "jpg" "jpeg"})
 (def artworks-dir (str site-source-dir "/artworks"))
-(def target-dir "/tmp/organa")
+(def target-dir (:target-dir config/config))
 (def gallery-html (str target-dir "/artworks.html"))
 
 (defn artworks-dirs []

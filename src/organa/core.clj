@@ -11,6 +11,7 @@
             [organa.config :refer [config]]
             [organa.dates :as dates]
             [organa.egg :refer [easter-egg]]
+            [organa.files :as f]
             [organa.gallery :as gal]
             [organa.html :as h]
             [organa.image :as img]
@@ -22,12 +23,15 @@
 (def site-source-dir (:site-source-dir config))
 (def target-dir (:target-dir config))
 
-(defn ^:private remove-newlines
+(defn remove-newline-strings [s]
+  (remove (partial = "\n") s))
+
+(defn ^:private content-remove-newline-strings
   "
   Remove newlines from `:content` portion of Enlive element `el`.
   "
   [el]
-  (update-in el [:content] (partial remove (partial = "\n"))))
+  (update-in el [:content] remove-newline-strings))
 
 (defn ^:private execute-organa [m]
   (-> m
@@ -36,11 +40,9 @@
       read-string
       eval))
 
-(defn ^:private year [] (+ 1900 (.getYear (java.util.Date.))))
-
 (defn ^:private footer []
   (h/p {:class "footer"}
-       [(format "© 2006-%d John Jacobsen." (year))
+       [(format "© 2006-%d John Jacobsen." (dates/year))
         " Made with "
         (h/a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
         "."]))
@@ -257,10 +259,10 @@
                             first
                             tags-bracketed-by-colons)
                 thing))
-      [:body] remove-newlines
-      [:ul] remove-newlines
-      [:html] remove-newlines
-      [:head] remove-newlines
+      [:body] content-remove-newline-strings
+      [:ul] content-remove-newline-strings
+      [:html] content-remove-newline-strings
+      [:head] content-remove-newline-strings
       [:head] (html/append (page-header css))
       [:pre.src-organa] execute-organa
       [:div#content :h1.title]
@@ -313,10 +315,7 @@
       .exists))
 
 (defn available-org-files [site-source-dir]
-  (->> site-source-dir
-       clojure.java.io/file
-       .listFiles
-       ;;file-seq
+  (->> (f/files-in-directory site-source-dir :as :file)
        (filter (comp #(.endsWith % ".org") str))
        (filter html-file-exists)
        (remove (comp #(.contains % ".#") str))
@@ -333,11 +332,8 @@
 
 (defn stage-site-image-files! [site-source-dir target-dir]
   ;; FIXME: avoid bash hack?
-  (doseq [f (->> site-source-dir
-                 clojure.java.io/file
-                 .listFiles
-                 (map #(.toString %))
-                 (filter (partial re-find img/image-file-pattern)))]
+  (doseq [f (->> (filter (partial re-find img/image-file-pattern)
+                         (f/files-in-directory site-source-dir :as :str)))]
     (sh "cp -p " f " " target-dir)))
 
 (defn stage-site-static-files! [site-source-dir target-dir]
@@ -354,13 +350,9 @@
 
 (defn generate-html-for-galleries! [site-source-dir css]
   (let [galleries-dir (str site-source-dir "/galleries")]
-    (doseq [galpath (->> galleries-dir
-                         clojure.java.io/file
-                         .listFiles
-                         (map str)
-                         (remove #(.contains % "/.")))
+    (doseq [galpath (f/files-in-directory galleries-dir :as :str)
             :let [galfiles (gal/gallery-images galpath)]]
-      (println "Making gallery" galpath)
+      (printf "Making gallery '%s'\n" (f/basename galpath))
       (->> (html/at base-enlive-snippet
              [:head] (html/append (page-header css))
              [:body]
@@ -534,8 +526,9 @@
   (shutdown-agents))
 
 (comment
-  (generate-site (assoc config :proof? true))
-  (clojure.java.shell/sh "open" "/tmp/organa/index.html")
   (require '[marginalia.core :as marg])
   (marg/run-marginalia ["src/organa/core.clj"])
-  (clojure.java.shell/sh "open" "docs/uberdoc.html"))
+  (clojure.java.shell/sh "open" "docs/uberdoc.html")
+
+  (generate-site (assoc config :proof? true))
+  (clojure.java.shell/sh "open" "/tmp/organa/index.html"))

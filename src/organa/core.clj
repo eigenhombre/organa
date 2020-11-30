@@ -348,24 +348,49 @@
 (def base-enlive-snippet
   (html/html-snippet "<html><head></head><body></body></html>"))
 
+(defn ^:private galleries-path [site-source-dir]
+  (str site-source-dir "/galleries"))
+
+(defn generate-thumbnails-for-gallery! [galpath imagefiles]
+  (doseq [img imagefiles
+          :when (not (.contains img "-thumb"))
+          :let [[base ext] (f/splitext img)
+                thumb-path (format "%s/%s-thumb.png" galpath base)
+                orig-path (format "%s/%s" galpath img)]]
+    (when-not (.exists (io/file thumb-path))
+      (printf "Creating thumbnail file %s...\n" thumb-path)
+      (img/create-thumbnail! orig-path thumb-path))))
+
+(defn generate-thumbnails-in-galleries! [site-source-dir]
+  (let [galleries-dir (galleries-path site-source-dir)]
+    (doseq [galpath (f/files-in-directory galleries-dir :as :str)
+            :let [imagefiles (gal/gallery-images galpath)]]
+      (printf "Making thumbnails for gallery '%s'\n" (f/basename galpath))
+      (generate-thumbnails-for-gallery! galpath imagefiles))))
+
+(defn gallery-html [css galpath galfiles]
+  (->> (html/at base-enlive-snippet
+         [:head] (html/append (page-header css))
+         [:body]
+         (html/append
+          [(h/div {:class "gallery"}
+                  (for [f galfiles
+                        :let [[base _] (f/splitext f)
+                              thumb-path (format "%s-thumb.png" base)]]
+                    (h/a {:href (str "./" f)}
+                         [(h/img {:src (str "./" thumb-path)
+                                  :height "250px"}
+                                 [])])))]))
+       (html/emit*)
+       (apply str)))
+
 (defn generate-html-for-galleries! [site-source-dir css]
-  (let [galleries-dir (str site-source-dir "/galleries")]
+  (let [galleries-dir (galleries-path site-source-dir)]
     (doseq [galpath (f/files-in-directory galleries-dir :as :str)
             :let [galfiles (gal/gallery-images galpath)]]
       (printf "Making gallery '%s'\n" (f/basename galpath))
-      (->> (html/at base-enlive-snippet
-             [:head] (html/append (page-header css))
-             [:body]
-             (html/append
-              [(h/div {:class "gallery"}
-                      (for [f galfiles]
-                        (h/a {:href (str "./" f)}
-                             [(h/img {:src (str "./" f)
-                                      :height "250px"}
-                                     [])])))]))
-           (html/emit*)
-           (apply str)
-           (spit (str galpath "/index.html"))))))
+      (spit (str galpath "/index.html")
+            (gallery-html css galpath galfiles)))))
 
 (defn wait-futures [futures]
   (loop [cnt 0]
@@ -488,7 +513,7 @@
                      (mapcat :tags)
                      (remove #{"static" "draft"})
                      (into #{}))
-
+        _ (generate-thumbnails-in-galleries! site-source-dir)
         image-future (future (stage-site-image-files! site-source-dir
                                                       target-dir))
         static-future (future (generate-html-for-galleries! site-source-dir
@@ -529,6 +554,15 @@
   (require '[marginalia.core :as marg])
   (marg/run-marginalia ["src/organa/core.clj"])
   (clojure.java.shell/sh "open" "docs/uberdoc.html")
-
+  (generate-site config)
   (generate-site (assoc config :proof? true))
-  (clojure.java.shell/sh "open" "/tmp/organa/index.html"))
+  (clojure.java.shell/sh "open" "/tmp/organa/index.html")
+
+  (require '[organa.profile :as prof])
+  (->> (prof/get-profiles)
+       (map (juxt first (comp (fn [n]
+                                (float (/ n (* 1000 1000 1000))))
+                              second))))
+
+  )
+

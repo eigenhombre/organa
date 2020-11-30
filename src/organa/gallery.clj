@@ -10,7 +10,8 @@
        .listFiles
        (map #(.getName %))
        sort
-       (filter (partial re-find img/image-file-pattern))))
+       (filter (partial re-find img/image-file-pattern))
+       (remove #(.contains % "-thumb.png"))))
 
 ;; This is invoked directly from one of the org files on the blog!
 ;; FIXME: sketchy!
@@ -23,4 +24,5 @@
                                            gallery-name f)]]
                 (h/a {:href img-path}
                      [(h/img {:src img-path
-                              :class "inline-gallery-thumb"})])))))
+                              :class "inline-gallery-thumb"}
+                             [])])))))

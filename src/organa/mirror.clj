@@ -51,11 +51,11 @@
 (defn preview-file [fname]
   (sh/sh "open" fname))
 
-(comment)
-(let [html
-      (->> (read-temp-posts-file)
-           parse-file
-           (map relevant-data)
-           ->html)]
-  (spit "/tmp/posts.html" html)
-  (preview-file "/tmp/posts.html"))
+(comment
+  (let [html
+        (->> (read-temp-posts-file)
+             parse-file
+             (map relevant-data)
+             ->html)]
+    (spit "/tmp/posts.html" html)
+    (preview-file "/tmp/posts.html")))

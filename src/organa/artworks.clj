@@ -51,9 +51,7 @@
             "index.html"))
 
 (defn artwork-meta-path [{:keys [directory]}]
-  (oio/path target-dir
-            (.getName directory)
-            "meta.html"))
+  (oio/path directory "meta.html"))
 
 (defn artwork-html [artwork]
   (hiccup/html
@@ -62,7 +60,7 @@
      [:img {:src (artwork-image-path artwork)
             :width 800}]]
     [:pre (with-out-str
-            (pprint/pprint (dissoc artwork :meta)))]]))
+            (pprint/pprint artwork #_(dissoc artwork :meta)))]]))
 
 (defn enhance [artwork]
   (let [html-path (artwork-html-path artwork)
@@ -77,13 +75,15 @@
         (merge (when title {:title title})
                meta-table))))
 
-(defn write-files! [{:keys [html-path
-                            artworks-file] :as artwork}]
+(defn write-files! [{:keys [html-path artworks-file] :as artwork}]
   (io/make-parents html-path)
   (spit html-path (artwork-html artwork))
   (io/copy artworks-file
-           (io/file (oio/path (oio/dirfile (io/file html-path))
-                              (.getName artworks-file))))
+           (-> html-path
+               io/file
+               oio/dirfile
+               (oio/path (.getName artworks-file))
+               io/file))
   artwork)
 
 (defn artworks-for-dir [d]
@@ -135,3 +135,4 @@
        (spit gallery-html))
 
   (clojure.java.shell/sh "open" gallery-html))
+

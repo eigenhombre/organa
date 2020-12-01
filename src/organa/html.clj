@@ -1,6 +1,5 @@
 (ns organa.html
-  (:require [net.cgrand.enlive-html :as html]
-            [organa.profile :refer [with-profile-key]]))
+  (:require [net.cgrand.enlive-html :as html]))
 
 (defmacro deftag
   ([fname tagname]
@@ -40,10 +39,8 @@
 
 (defn parse-org-html
   ([html-text]
-   (with-profile-key :parse-org-html-1
-     (html/html-snippet html-text)))
+   (html/html-snippet html-text))
   ([source-dir basename]
-   (with-profile-key :parse-org-html-2
-     (-> (format "%s/%s.html" source-dir basename)
-         slurp
-         html/html-snippet))))
+   (-> (format "%s/%s.html" source-dir basename)
+       slurp
+       html/html-snippet)))

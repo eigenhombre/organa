@@ -16,8 +16,9 @@
 (def site-source-dir (:site-source-dir config/config))
 (def image-file-extensions #{"png" "gif" "jpg" "jpeg"})
 (def artworks-dir (str site-source-dir "/artworks"))
-(def target-dir (:target-dir config/config))
-(def gallery-html (str target-dir "/artworks.html"))
+(def target-dir (str (:target-dir config/config)
+                     "/artworks"))
+(def gallery-html (str target-dir "/index.html"))
 
 (defn artworks-dirs []
   {:post [(seq %)
@@ -38,48 +39,42 @@
 
 (def max-thumb-side 600)
 
-(defn artwork-image-path
-  [{:keys [directory artworks-file]}]
-  {:pre [directory artworks-file]}
-  (oio/path target-dir
-            (.getName directory)
-            (.getName artworks-file)))
-
-(defn artwork-html-path [{:keys [directory]}]
-  (oio/path target-dir
-            (.getName directory)
-            "index.html"))
-
 (defn artwork-meta-path [{:keys [directory]}]
   (oio/path directory "meta.html"))
 
-(defn artwork-html [artwork]
+(defn artwork-html [css {:keys [artworks-file] :as artwork}]
   (hiccup/html
-   [:div
-    [:a {:href (artwork-image-path artwork)}
-     [:img {:src (artwork-image-path artwork)
-            :width 800}]]
-    [:pre (with-out-str
-            (pprint/pprint artwork #_(dissoc artwork :meta)))]]))
+   [:html
+    [:head [:style css]]
+    [:body
+     [:div
+      [:a {:href (.getName artworks-file)}
+       [:img {:src (.getName artworks-file)
+              :width 800}]]
+      [:pre (with-out-str
+              (pprint/pprint artwork #_(dissoc artwork :meta)))]]]]))
 
-(defn enhance [artwork]
-  (let [html-path (artwork-html-path artwork)
-        meta-path (artwork-meta-path artwork)
+(defn enhance [{:keys [directory] :as artwork}]
+  (let [meta-path (artwork-meta-path artwork)
         meta-html (when (.exists (io/file meta-path))
                     (slurp meta-path))
         parsed-meta (html/parse-org-html meta-html)
         title (parse/title-for-org-file parsed-meta)
         meta-table (parse/parsed-org-html->table-metadata parsed-meta)]
     (-> artwork
-        (assoc :html-path html-path)
+        (assoc :html-abs-path (oio/path target-dir
+                                        (.getName directory)
+                                        "index.html")
+               :html-rel-path (oio/path (.getName directory)
+                                        "index.html"))
         (merge (when title {:title title})
                meta-table))))
 
-(defn write-files! [{:keys [html-path artworks-file] :as artwork}]
-  (io/make-parents html-path)
-  (spit html-path (artwork-html artwork))
+(defn write-files! [css {:keys [html-abs-path artworks-file] :as artwork}]
+  (io/make-parents html-abs-path)
+  (spit html-abs-path (artwork-html css artwork))
   (io/copy artworks-file
-           (-> html-path
+           (-> html-abs-path
                io/file
                oio/dirfile
                (oio/path (.getName artworks-file))
@@ -106,33 +101,44 @@
      :thumb-width thumb-width
      :thumb-height thumb-height}))
 
-(defn artworks-html [artwork-records]
+(defn artworks-html [css recs]
   (hiccup/html
-   [:div
-    [:table
-     (for [{:keys [title year html-path] :as r}
-           artwork-records]
-       [:tr
-        [:td [:div
-              [:a {:href html-path}
-               [:img {:src (artwork-image-path r)
-                      :width 400}]]]]
-        [:td [:table
-              [:tr [:td [:em (or title "")]]]
-              [:tr [:td (or year "")]]]]])]]))
+   [:html
+    [:head [:style css]]
+    [:body
+     [:div.margined
+      [:table
+       (for [{:keys [title
+                     year
+                     directory
+                     artworks-file
+                     html-rel-path] :as r} recs]
+         [:tr
+          [:td [:div
+                [:a {:href html-rel-path}
+                 [:img {:src (oio/path (.getName directory)
+                                       (.getName artworks-file))
+                        :width 400}]]]]
+          [:td [:table
+                [:tr [:td [:em (or title "")]]]
+                [:tr [:td (or year "")]]]]])]]]]))
 
-(comment
-  (require '[clojure.java.shell :as shell])
-  (shell/sh "open" artworks-dir)
-
+(defn spit-out-artworks-pages! [css]
   (->> (artworks-dirs)
        (pmap artworks-for-dir)
        (map enhance)
-       (map write-files!)
+       (map (partial write-files! css))
        (sort-by :year)
        reverse
-       artworks-html
-       (spit gallery-html))
+       (artworks-html css)
+       (spit gallery-html)))
+
+(comment
+  (require '[clojure.java.shell :as shell]
+           '[garden.core :refer [css] :rename {css to-css}])
+  (shell/sh "open" artworks-dir)
+
+  (let [css (to-css (load-file (str site-source-dir "/" "index.garden")))]
+    (spit-out-artworks-pages! css))
 
   (clojure.java.shell/sh "open" gallery-html))
-

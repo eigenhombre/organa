@@ -8,6 +8,7 @@
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
             [net.cgrand.enlive-html :as html]
+            [organa.artworks :as artworks]
             [organa.config :refer [config]]
             [organa.dates :as dates]
             [organa.egg :refer [easter-egg]]
@@ -340,8 +341,11 @@
   (println "Syncing files in static directory...")
   (apply clojure.java.shell/sh
          (clojure.string/split
-          (format "rsync -vurt %s/static %s/galleries %s"
-                  site-source-dir site-source-dir target-dir)
+          (format "rsync -vurt %s/static %s/galleries %s/artworks %s"
+                  site-source-dir
+                  site-source-dir
+                  site-source-dir
+                  target-dir)
           #" ")))
 
 ;; FIXME: Hack-y?
@@ -520,7 +524,8 @@
                                                             css)
                               (stage-site-static-files! site-source-dir
                                                         target-dir))]
-
+    (println "Making artworks pages...")
+    (artworks/spit-out-artworks-pages! css)
     (make-home-page org-files parsed-org-file-map alltags css)
     (make-blog-page org-files parsed-org-file-map alltags css)
     (doseq [tag alltags]
@@ -565,4 +570,3 @@
                               second))))
 
   )
-

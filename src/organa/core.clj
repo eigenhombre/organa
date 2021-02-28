@@ -251,12 +251,13 @@
                       (footer)))))
 
 (defn process-html-file! [{:keys [target-dir]}
-                          {:keys [file-name date static? draft? parsed tags]}
+                          {:keys [file-name date static? draft?
+                                  parsed-html tags]}
                           available-files
                           alltags
                           css
                           parsed-org-file-map]
-  (->> parsed
+  (->> parsed-html
        (transform-enlive file-name
                          date
                          available-files
@@ -437,20 +438,10 @@
   (let [ssd (:site-source-dir config)]
     (into {}
           (for [f files-to-process]
-            (let [parsed-html
-                  (->> f
-                       (h/parse-org-html ssd)
-                       remove-gnu-junk)
-                  tags (tags-for-org-file parsed-html)
-                  ;; FIXME: Why `parsed` AND `parsed-html`?
-                  parsed (->> (str f ".html")
-                              (str ssd "/")
-                              slurp
-                              ;; convert to Enlive:
-                              html/html-snippet
-                              remove-gnu-junk
-                              ;; remove useless stuff at top:
-                              (drop 3))]
+            (let [parsed-html (->> f
+                                   (h/parse-org-html ssd)
+                                   remove-gnu-junk)
+                  tags (tags-for-org-file parsed-html)]
               [f
                ;; FIXME: It's hacky to have f in both places
                {:file-name f
@@ -458,7 +449,6 @@
                 :date (dates/date-for-org-file ssd f)
                 :title (parse/title-for-org-file parsed-html)
                 :tags tags
-                :parsed parsed
                 :parsed-html parsed-html
                 :static? (some #{"static"} tags)
                 :draft? (some #{"draft"} tags)}])))))

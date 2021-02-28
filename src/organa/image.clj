@@ -20,13 +20,16 @@
 
 (def max-height 250)
 
-(defn create-thumbnail! [orig-path thumb-path]
-  (let [img (image/load-image orig-path)
-        h (.getHeight img)
-        w (.getWidth img)
-        new-h max-height
-        new-w (int (* w (/ max-height h)))]
-    (image/write (image/resize img new-w new-h)
-                 thumb-path
-                 "png"
-                 :quality 1.0)))
+(defn create-thumbnail!
+  ([maxh orig-path thumb-path]
+   (let [img (image/load-image orig-path)
+         h (.getHeight img)
+         w (.getWidth img)
+         new-h maxh
+         new-w (int (* w (/ maxh h)))]
+     (image/write (image/resize img new-w new-h)
+                  thumb-path
+                  "png"
+                  :quality 1.0)))
+  ([orig-path thumb-path]
+   (create-thumbnail! max-height orig-path thumb-path)))

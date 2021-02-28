@@ -1,24 +1,28 @@
-{:linters
- {:unresolved-symbol
-  {:exclude [a
-             div
-             h1
-             h2
-             img
-             li
-             link
-             meta-tag
-             p
-             pre
-             script
-             span
-             strong
-             style
-             table
-             tbody
-             thead
-             tr
-             td
-             th
-             em
-             ul]}}}
+{:lint-as {organa.html/a clj-kondo.lint-as/def-catch-all
+           h/a clj-kondo.lint-as/def-catch-all}
+ :linters {:unresolved-symbol
+           {:exclude [a
+                      div
+                      em
+                      h1
+                      h2
+                      img
+                      li
+                      link
+                      meta-tag
+                      p
+                      pre
+                      script
+                      span
+                      strong
+                      strong
+                      style
+                      table
+                      tbody
+                      td
+                      th
+                      thead
+                      tr
+                      ul]}
+           :unresolved-var
+           {:level :off}}}

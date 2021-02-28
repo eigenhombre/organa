@@ -29,13 +29,12 @@
                       (take 10)
                       (apply str)))
 
-(defn post->enl [{:keys [caption width url timestamp] :as m}]
-  (let [date-str (str (.toLocalDate timestamp))]
-    (h/div
-     [(h/div {:style "width:300px;height:300px;overflow:hidden;background-size:cover;"}
-             [(h/img {:width 300
-                      :src url}
-                     [])])])))
+(defn post->enl [{:keys [url]}]
+  (h/div
+   [(h/div {:style "width:300px;height:300px;overflow:hidden;background-size:cover;"}
+           [(h/img {:width 300
+                    :src url}
+                   [])])]))
 
 (defn ->html [posts]
   (let [enl-posts (map post->enl posts)

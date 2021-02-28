@@ -20,12 +20,8 @@
             [organa.parse :as parse]
             [organa.rss :as rss]))
 
-(def remote-host (:remote-host config))
-(def site-source-dir (:site-source-dir config))
-(def target-dir (:target-dir config))
-
-(defn remove-newline-strings [s]
-  (remove (partial = "\n") s))
+(defn ^:private remove-newline-strings [coll]
+  (remove (partial = "\n") coll))
 
 (defn ^:private content-remove-newline-strings
   "
@@ -58,10 +54,11 @@
 
 (defn- tags-bracketed-by-colons
   "
-  (tags-bracketed-by-colons \":foo:baz:\")
-  ;;=> [\"foo\" \"baz\"]
-  (tags-bracketed-by-colons \"adfkljhsadf\")
-  ;;=> nil
+
+      (tags-bracketed-by-colons \":foo:baz:\")
+      ;;=> [\"foo\" \"baz\"]
+      (tags-bracketed-by-colons \"adfkljhsadf\")
+      ;;=> nil
   "
   [s]
   (some-> (re-find #"^\:(.+?)\:$" s)
@@ -180,41 +177,6 @@
               :type "image/gif"}
              [])
 
-     ;; WIP: Responsive website
-     ;; ;; Bootstrap
-     ;; (link {:rel "stylesheet"
-     ;;        :href (str "https://stackpath.bootstrapcdn.com/"
-     ;;                   "bootstrap/4.3.1/css/bootstrap.min.css")
-     ;;        :integrity (str "sha384-ggOyR0iXCbMQv3Xipma34MD+dH/"
-     ;;                        "1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T")
-     ;;        :crossorigin "anonymous"}
-     ;;       [])
-
-     ;; ;; Bootstrap
-     ;; (script {:src "https://code.jquery.com/jquery-3.3.1.slim.min.js"
-     ;;          :integrity (str "sha384-q8i/X+965DzO0rT7abK41JStQIAqVg"
-     ;;                          "RVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo")
-     ;;          :crossorigin "anonymous"})
-     ;; ;; Bootstrap
-     ;; (script {:src (str "https://cdnjs.cloudflare.com/ajax/libs/"
-     ;;                    "popper.js/1.14.7/umd/popper.min.js")
-     ;;          :integrity (str "sha384-UO2eT0CpHqdSJQ6hJty5KVphtP"
-     ;;                          "hzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1")
-     ;;          :crossorigin "anonymous"})
-     ;; ;; Bootstrap
-     ;; (script {:src (str "https://stackpath.bootstrapcdn.com"
-     ;;                    "/bootstrap/4.3.1/js/bootstrap.min.js")
-     ;;          :integrity (str "sha384-JjSmVgyd0p3pXB1rRibZUAY"
-     ;;                          "oIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM")
-     ;;          :crossorigin "anonymous"})
-
-     ;; ;; Bootstrap
-     ;; (meta-tag {:name "viewport"
-     ;;            :content (str "width=device-width, "
-     ;;                          "initial-scale=1, "
-     ;;                          "shrink-to-fit=no")}
-     ;;           [])
-
      ;; Analytics
      (h/script {:type "text/javascript"
                 :async true
@@ -288,7 +250,7 @@
                       nav-section
                       (footer)))))
 
-(defn process-html-file! [target-dir
+(defn process-html-file! [{:keys [target-dir]}
                           {:keys [file-name date static? draft? parsed tags]}
                           available-files
                           alltags
@@ -356,13 +318,15 @@
   (str site-source-dir "/galleries"))
 
 (defn generate-thumbnails-for-gallery! [galpath imagefiles]
-  (doseq [img imagefiles
-          :when (not (.contains img "-thumb"))
-          :let [[base ext] (f/splitext img)
+  (doseq [img (remove #(.contains % "-thumb")
+                      imagefiles)
+          :let [[base _] (f/splitext img)
                 thumb-path (format "%s/%s-thumb.png" galpath base)
                 orig-path (format "%s/%s" galpath img)]]
     (when-not (.exists (io/file thumb-path))
-      (printf "Creating thumbnail file %s...\n" thumb-path)
+      (printf "Creating thumbnail file %s from %s...\n"
+              thumb-path
+              orig-path)
       (img/create-thumbnail! orig-path thumb-path))))
 
 (defn generate-thumbnails-in-galleries! [site-source-dir]
@@ -372,7 +336,7 @@
       (printf "Making thumbnails for gallery '%s'\n" (f/basename galpath))
       (generate-thumbnails-for-gallery! galpath imagefiles))))
 
-(defn gallery-html [css galpath galfiles]
+(defn gallery-html [css galfiles]
   (->> (html/at base-enlive-snippet
          [:head] (html/append (page-header css))
          [:body]
@@ -394,7 +358,7 @@
             :let [galfiles (gal/gallery-images galpath)]]
       (printf "Making gallery '%s'\n" (f/basename galpath))
       (spit (str galpath "/index.html")
-            (gallery-html css galpath galfiles)))))
+            (gallery-html css galfiles)))))
 
 (defn wait-futures [futures]
   (loop [cnt 0]
@@ -412,16 +376,21 @@
       (catch Throwable t
         (println t)))))
 
-(defn emit-html-to-file [file-name enlive-tree]
+(defn emit-html-to-file [target-dir file-name enlive-tree]
   (->> enlive-tree
        (html/emit*)
        (cons "<!doctype html>\n")
        (apply str)
        (spit (str target-dir "/" file-name))))
 
-(defn make-home-page [org-files parsed-org-file-map tags css]
+(defn make-old-home-page [{:keys [target-dir]}
+                          org-files
+                          parsed-org-file-map
+                          tags
+                          css]
   (emit-html-to-file
-   "index.html"
+   target-dir
+   "index-old.html"
    (html/at base-enlive-snippet
      [:head] (html/append (page-header css))
      [:body] (html/append
@@ -436,71 +405,81 @@
                         (footer)]))))
 
 (defn make-blog-page
-  ([org-files parsed-org-file-map tags css]
-   (make-blog-page :all org-files parsed-org-file-map tags css))
-  ([tag org-files parsed-org-file-map tags css]
+  ([config org-files parsed-org-file-map tags css]
+   (make-blog-page config :all org-files parsed-org-file-map tags css))
+  ([{:keys [target-dir]} tag org-files parsed-org-file-map tags css]
    (println (format "Making blog page for tag '%s'" tag))
    (let [tag-posts (if (= tag :all)
                      org-files
                      (filter (comp (partial some #{tag}) :tags) org-files))]
-     (emit-html-to-file
-      (str (if (= tag :all) "" (str tag "-"))
-           "blog.html")
-      (html/at base-enlive-snippet
-        [:head] (html/append (page-header css))
-        [:body] (html/append
-                 [(pages/blog-body)
-                  ;;(div {:class "hspace"} [])
-                  ])
-        [:div#blogposts] (html/append
-                          [(articles-nav-section "blog"
-                                                 tag-posts
-                                                 tags
-                                                 parsed-org-file-map)
-                           (footer)]))))))
+     (emit-html-to-file target-dir
+                        (str (if (= tag :all) "" (str tag "-"))
+                             "blog.html")
+                        (html/at base-enlive-snippet
+                          [:head] (html/append (page-header css))
+                          [:body] (html/append
+                                   [(pages/blog-body)
+                                    ;;(div {:class "hspace"} [])
+                                    ])
+                          [:div#blogposts] (html/append
+                                            [(articles-nav-section "blog"
+                                                                   tag-posts
+                                                                   tags
+                                                                   parsed-org-file-map)
+                                             (footer)]))))))
 
-(defn- files->parsed [files-to-process]
-  (into {}
-        (for [f files-to-process]
-          (let [parsed-html
-                (h/parse-org-html site-source-dir f)
-                tags (tags-for-org-file parsed-html)
-                parsed (->> (str f ".html")
-                            (str site-source-dir "/")
-                            slurp
-                            ;; convert to Enlive:
-                            html/html-snippet
-                            ;; remove useless stuff at top:
-                            (drop 3))]
-            [f
-             ;; FIXME: It's hacky to have f in both places
-             {:file-name f
-              ;; FIXME: don't re-parse for dates!
-              :date (dates/date-for-org-file site-source-dir f)
-              :title (parse/title-for-org-file parsed-html)
-              :tags tags
-              :parsed parsed
-              :parsed-html parsed-html
-              :static? (some #{"static"} tags)
-              :draft? (some #{"draft"} tags)}]))))
+(defn remove-gnu-junk [snippet]
+  (html/at snippet
+    [:script] nil
+    [:style] nil))
+
+(defn files->parsed [files-to-process]
+  (let [ssd (:site-source-dir config)]
+    (into {}
+          (for [f files-to-process]
+            (let [parsed-html
+                  (->> f
+                       (h/parse-org-html ssd)
+                       remove-gnu-junk)
+                  tags (tags-for-org-file parsed-html)
+                  ;; FIXME: Why `parsed` AND `parsed-html`?
+                  parsed (->> (str f ".html")
+                              (str ssd "/")
+                              slurp
+                              ;; convert to Enlive:
+                              html/html-snippet
+                              remove-gnu-junk
+                              ;; remove useless stuff at top:
+                              (drop 3))]
+              [f
+               ;; FIXME: It's hacky to have f in both places
+               {:file-name f
+                ;; FIXME: don't re-parse for dates!
+                :date (dates/date-for-org-file ssd f)
+                :title (parse/title-for-org-file parsed-html)
+                :tags tags
+                :parsed parsed
+                :parsed-html parsed-html
+                :static? (some #{"static"} tags)
+                :draft? (some #{"draft"} tags)}])))))
 
 (defn- proof-files-to-process [all-org-files]
   (->> all-org-files
        (sort-by (fn [fname]
                   (->> (str fname ".html")
-                       (str site-source-dir "/")
+                       (str (:site-source-dir config) "/")
                        (dates/date-for-file-by-os))))
        reverse
        (take 10)))
 
-(defn generate-site [{:keys [target-dir proof?]}]
+(defn generate-site [{:keys [target-dir proof?] :as config}]
   (println "The party commences....")
   (ensure-target-dir-exists! target-dir)
-  (let [css (->> "index.garden"
-                 (str site-source-dir "/")
+  (let [ssd (:site-source-dir config)
+        css (->> (str ssd "/index.garden")
                  load-file
                  to-css)
-        all-org-files (available-org-files site-source-dir)
+        all-org-files (available-org-files ssd)
         files-to-process (if-not proof?
                            all-org-files
                            (proof-files-to-process all-org-files))
@@ -517,26 +496,26 @@
                      (mapcat :tags)
                      (remove #{"static" "draft"})
                      (into #{}))
-        _ (generate-thumbnails-in-galleries! site-source-dir)
-        image-future (future (stage-site-image-files! site-source-dir
+        _ (generate-thumbnails-in-galleries! ssd)
+        image-future (future (stage-site-image-files! ssd
                                                       target-dir))
-        static-future (future (generate-html-for-galleries! site-source-dir
+        static-future (future (generate-html-for-galleries! ssd
                                                             css)
-                              (stage-site-static-files! site-source-dir
+                              (stage-site-static-files! ssd
                                                         target-dir))]
     (println "Making artworks pages...")
     (artworks/spit-out-artworks-pages! css)
-    (make-home-page org-files parsed-org-file-map alltags css)
-    (make-blog-page org-files parsed-org-file-map alltags css)
+    (make-old-home-page config org-files parsed-org-file-map alltags css)
+    (make-blog-page config org-files parsed-org-file-map alltags css)
     (doseq [tag alltags]
-      (make-blog-page tag org-files parsed-org-file-map alltags css))
+      (make-blog-page config tag org-files parsed-org-file-map alltags css))
     (println "Making RSS feed...")
     (rss/make-rss-feeds "feed.xml" org-files)
     (rss/make-rss-feeds "clojure" "feed.clojure.xml" org-files)
     (rss/make-rss-feeds "lisp" "feed.lisp.xml" org-files)
     (let [page-futures (for [f org-files]
                          (future
-                           (process-html-file! target-dir
+                           (process-html-file! config
                                                f
                                                org-files
                                                alltags
@@ -561,12 +540,5 @@
   (clojure.java.shell/sh "open" "docs/uberdoc.html")
   (generate-site config)
   (generate-site (assoc config :proof? true))
-  (clojure.java.shell/sh "open" "/tmp/organa/index.html")
-
-  (require '[organa.profile :as prof])
-  (->> (prof/get-profiles)
-       (map (juxt first (comp (fn [n]
-                                (float (/ n (* 1000 1000 1000))))
-                              second))))
-
+  (clojure.java.shell/sh "open" "/tmp/organa/index-old.html")
   )

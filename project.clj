@@ -5,6 +5,7 @@
                  [cheshire "5.8.1"]
                  [clj-rss "0.2.5"]
                  [clj-time "0.12.2"]
+                 [clj-yaml "0.4.0"]
                  [clojure.java-time "0.3.2"]
                  [enlive "1.1.6"]
                  [environ "1.1.0"]

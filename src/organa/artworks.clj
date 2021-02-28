@@ -1,12 +1,14 @@
 (ns organa.artworks
-  (:require [clojure.java.io :as io]
+  (:require [clj-yaml.core :as yaml]
+            [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as string]
-            [environ.core :refer [env]]
             [hiccup.core :as hiccup]
             [mikera.image.core :as image]
             [organa.config :as config]
+            [organa.files :as files]
             [organa.html :as html]
+            [organa.image :as img]
             [organa.io :as oio]
             [organa.parse :as parse]))
 
@@ -42,6 +44,9 @@
 (defn artwork-meta-path [{:keys [directory]}]
   (oio/path directory "meta.html"))
 
+(defn artwork-meta-path-yml [{:keys [directory]}]
+  (oio/path directory "meta.yml"))
+
 (defn artwork-html [css {:keys [artworks-file] :as artwork}]
   (hiccup/html
    [:html
@@ -54,29 +59,39 @@
       [:pre (with-out-str
               (pprint/pprint artwork #_(dissoc artwork :meta)))]]]]))
 
+(defn load-meta [artwork]
+  ;; Try YAML first, then parsed Org->HTML:
+  (let [meta-yml-path (artwork-meta-path-yml artwork)]
+    (if (.exists (io/file meta-yml-path))
+      (yaml/parse-string (slurp meta-yml-path))
+      (let [meta-path (artwork-meta-path artwork)
+            meta-html (when (.exists (io/file meta-path))
+                        (slurp meta-path))
+            parsed-meta (html/parse-org-html meta-html)
+            title (parse/title-for-org-file parsed-meta)]
+        (merge (parse/parsed-org-html->table-metadata parsed-meta)
+               (when title {:title title}))))))
+
 (defn enhance [{:keys [directory] :as artwork}]
-  (let [meta-path (artwork-meta-path artwork)
-        meta-html (when (.exists (io/file meta-path))
-                    (slurp meta-path))
-        parsed-meta (html/parse-org-html meta-html)
-        title (parse/title-for-org-file parsed-meta)
-        meta-table (parse/parsed-org-html->table-metadata parsed-meta)]
-    (-> artwork
-        (assoc :html-abs-path (oio/path target-dir
-                                        (.getName directory)
-                                        "index.html")
-               :html-rel-path (oio/path (.getName directory)
-                                        "index.html"))
-        (merge (when title {:title title})
-               meta-table))))
+  (-> artwork
+      (assoc :html-abs-path (oio/path target-dir
+                                      (.getName directory)
+                                      "index.html")
+             :html-rel-path (oio/path (.getName directory)
+                                      "index.html"))
+      (merge (load-meta artwork))))
+
+(defn directory-of-file [f]
+  (-> f
+      io/file
+      oio/dirfile))
 
 (defn write-files! [css {:keys [html-abs-path artworks-file] :as artwork}]
   (io/make-parents html-abs-path)
   (spit html-abs-path (artwork-html css artwork))
   (io/copy artworks-file
            (-> html-abs-path
-               io/file
-               oio/dirfile
+               directory-of-file
                (oio/path (.getName artworks-file))
                io/file))
   artwork)
@@ -101,6 +116,10 @@
      :thumb-width thumb-width
      :thumb-height thumb-height}))
 
+(defn thumb-name [s]
+  (let [[prefix _] (files/splitext s)]
+    (str prefix "-thumb.png")))
+
 (defn artworks-html [css recs]
   (hiccup/html
    [:html
@@ -110,25 +129,44 @@
       [:table
        (for [{:keys [title
                      year
+                     medium
                      directory
                      artworks-file
-                     html-rel-path] :as r} recs]
+                     html-rel-path]} recs]
          [:tr
-          [:td [:div
+          [:td [:div.artworkspic
                 [:a {:href html-rel-path}
-                 [:img {:src (oio/path (.getName directory)
-                                       (.getName artworks-file))
-                        :width 400}]]]]
+                 [:img {:src
+                        (oio/path (.getName directory)
+                                  (thumb-name (.getName artworks-file)))
+                        :width 200}]]]]
           [:td [:table
                 [:tr [:td [:em (or title "")]]]
-                [:tr [:td (or year "")]]]]])]]]]))
+                [:tr [:td (->> [medium year]
+                               (remove nil?)
+                               (clojure.string/join ", "))]]]]])]]]]))
+
+(defn thumb-path [html-abs-path artworks-file]
+  (oio/path (directory-of-file html-abs-path)
+            (thumb-name (str artworks-file))))
+
+;; Could cache or memoize this... but there isn't too much work there,
+;; yet...:
+(defn make-thumb! [{:keys [artworks-file
+                           html-abs-path] :as artwork}]
+  (let [tp (thumb-path html-abs-path artworks-file)]
+    (io/make-parents tp)
+    (img/create-thumbnail! 600 artworks-file tp))
+  artwork)
 
 (defn spit-out-artworks-pages! [css]
   (->> (artworks-dirs)
        (pmap artworks-for-dir)
        (map enhance)
+       (remove (comp #{"true"} :hidden))
+       (pmap make-thumb!)
        (map (partial write-files! css))
-       (sort-by :year)
+       (sort-by (comp str :year))
        reverse
        (artworks-html css)
        (spit gallery-html)))

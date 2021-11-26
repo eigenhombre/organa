@@ -26,8 +26,8 @@ using Hiccup or Enlive.  The current code relies on exporting Org Mode
 to HTML first, parsing that, and modifying the parse tree as needed.
 
 * Workflow
-If I were you, I wouldn't use this other than to steal ideas from it
-yet, since I haven't generalized it for multiple sites.  Since I often
+If I were you, I wouldn't use this yet, other than to steal ideas from it,
+since I haven't generalized it for multiple sites.  Since I often
 change functionality and content at the same time, my current workflow
 is still fairly REPL-driven:
 

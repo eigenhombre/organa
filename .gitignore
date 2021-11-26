@@ -1,4 +1,5 @@
 *.html
+*.monopic
 *.pages
 *jar
 .clj-kondo/.cache/*

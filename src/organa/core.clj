@@ -3,6 +3,7 @@
   (:require [clj-time.format :as tformat]
             [clojure.java.io :as io]
             [clojure.java.shell]
+            [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.walk]
             [environ.core :refer [env]]
@@ -250,9 +251,13 @@
                       nav-section
                       (footer)))))
 
+(defn as-string [x]
+  (with-out-str
+    (pprint/pprint x)))
+
 (defn process-html-file! [{:keys [target-dir]}
                           {:keys [file-name date static? draft?
-                                  parsed-html tags]}
+                                  parsed-html tags unparsed-html] :as r}
                           available-files
                           alltags
                           css
@@ -269,7 +274,10 @@
                          draft?)
        html/emit*        ;; turn back into html
        (apply str)
-       (spit (str target-dir "/" file-name ".html"))))
+       (spit (str target-dir "/" file-name ".html")))
+  (->> r
+       as-string
+       (spit (str target-dir "/" file-name ".edn"))))
 
 (defn html-file-exists [org-file-name]
   (-> org-file-name
@@ -413,21 +421,22 @@
    (let [tag-posts (if (= tag :all)
                      org-files
                      (filter (comp (partial some #{tag}) :tags) org-files))]
-     (emit-html-to-file target-dir
-                        (str (if (= tag :all) "" (str tag "-"))
-                             "blog.html")
-                        (html/at base-enlive-snippet
-                          [:head] (html/append (page-header css))
-                          [:body] (html/append
-                                   [(pages/blog-body)
-                                    ;;(div {:class "hspace"} [])
-                                    ])
-                          [:div#blogposts] (html/append
-                                            [(articles-nav-section "blog"
-                                                                   tag-posts
-                                                                   tags
-                                                                   parsed-org-file-map)
-                                             (footer)]))))))
+     (emit-html-to-file
+      target-dir
+      (str (if (= tag :all) "" (str tag "-"))
+           "blog.html")
+      (html/at base-enlive-snippet
+        [:head] (html/append (page-header css))
+        [:body] (html/append
+                 [(pages/blog-body)
+                  ;;(div {:class "hspace"} [])
+                  ])
+        [:div#blogposts] (html/append
+                          [(articles-nav-section "blog"
+                                                 tag-posts
+                                                 tags
+                                                 parsed-org-file-map)
+                           (footer)]))))))
 
 (defn remove-gnu-junk [snippet]
   (html/at snippet
@@ -450,6 +459,7 @@
                 :title (parse/title-for-org-file parsed-html)
                 :tags tags
                 :parsed-html parsed-html
+                :unparsed-html (apply str (html/emit* parsed-html))
                 :static? (some #{"static"} tags)
                 :draft? (some #{"draft"} tags)}])))))
 

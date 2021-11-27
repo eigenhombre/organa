@@ -2,7 +2,7 @@
 
 <img src="/organa.png" width="400">
 
-![build](https://github.com/eigenhombre/organaactions/workflows/build.yml/badge.svg)
+![build](https://github.com/eigenhombre/organa/actions/workflows/build.yml/badge.svg)
 
 # Introduction
 

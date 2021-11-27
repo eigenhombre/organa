@@ -6,7 +6,6 @@
             [hiccup.core :as hiccup]
             [mikera.image.core :as image]
             [organa.config :as config]
-            [organa.files :as files]
             [organa.html :as html]
             [organa.image :as img]
             [organa.fs :as fs]
@@ -119,7 +118,7 @@
      :thumb-height thumb-height}))
 
 (defn thumb-name [s]
-  (let [[prefix _] (files/splitext s)]
+  (let [[prefix _] (fs/splitext s)]
     (str prefix "-thumb.png")))
 
 (defn artworks-html [css recs]

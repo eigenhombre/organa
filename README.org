@@ -91,7 +91,7 @@ with Jekyll.
 
 ** Code / API documentation
 
-[[https://github.com/weavejester/codox][Codox]] docs are [[https://raw.githack.com/eigenhombre/organa/blob/master/docs/index.html][here]].
+[[https://github.com/weavejester/codox][Codox]] docs are [[https://raw.githack.com/eigenhombre/organa/master/docs/index.html][here]].
 
 * License
 

@@ -87,6 +87,11 @@ its related ecosystems.  Also I have a number of customizations
 relating to handling images that I'm unlikely to easily get working
 with Jekyll.
 
+* Implementation
+
+** Code / API documentation
+
+[[https://github.com/weavejester/codox][Codox]] docs are [[https://raw.githack.com/eigenhombre/organa/docs/index.html][here]].
 
 * License
 

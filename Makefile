@@ -18,5 +18,8 @@ install:
 
 all: test uberjar doc install
 
+doc:
+	lein codox
+
 test:
 	lein do kaocha, bikeshed, kibit, eastwood

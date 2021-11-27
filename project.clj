@@ -21,6 +21,11 @@
              :kaocha {:dependencies [[lambdaisland/kaocha "1.0.887"]]}
              :dev {:plugins [[lein-bikeshed "0.5.2"]
                              [lein-ancient "1.0.0-RC3"]
+                             [lein-codox "0.10.8"]
                              [jonase/eastwood "0.9.9"]
                              [lein-kibit "0.1.8"]]}}
+  :codox {:output-path "docs"
+          :source-uri
+          {#".*"
+           "https://github.com/eigenhombre/organa/blob/master/{filepath}#L{line}"}}
   :main ^:skip-aot organa.core)

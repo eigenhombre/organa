@@ -72,9 +72,9 @@ given time.  I can export to a fairly nice looking PDF document in a few
 keystrokes.  I also use the literate programming and LaTeX / math support from
 time to time.
 
-## Why not /just/ Org Mode?
+## Why not *just* Org Mode?
 
-*I.e., why a Clojure app?*  I find the export tools available for Org Mode are
+**I.e., why a Clojure app?**  I find the export tools available for Org Mode are
 not quite powerful (or fast) enough for a large (> 100 posts) blog.  I got
 pretty far trying to get the export features to suit, but not far enough --
 generation of a large site took too long, and customization was too unweildy.

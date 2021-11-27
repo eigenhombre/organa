@@ -6,7 +6,7 @@
             [clojure.string :as string])
   (:import [java.io File]))
 
-(deftest with-tmp-dir
+(deftest with-tmp-dir-test
   (testing "It creates a file object"
     (is (instance? java.io.File
                    (fs/with-tmp-dir d
@@ -21,7 +21,7 @@
       (is (not
            (.exists (io/file path)))))))
 
-(deftest path
+(deftest path-test
   (are [args result]
     (testing (str args " => " (pr-str result))
       (is (= result (apply fs/path args))))

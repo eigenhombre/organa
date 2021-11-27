@@ -12,6 +12,7 @@
                  [environ "1.1.0"]
                  [garden "1.3.2"]
                  [hiccup "1.0.5"]
+                 [me.raynes/fs "1.4.6"]
                  [mount "0.1.11"]
                  [net.mikera/imagez "0.12.0"]]
   :target-path "target/%s"

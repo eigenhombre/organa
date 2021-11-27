@@ -9,7 +9,7 @@
             [organa.files :as files]
             [organa.html :as html]
             [organa.image :as img]
-            [organa.io :as oio]
+            [organa.fs :as fs]
             [organa.parse :as parse])
   (:import [java.io File]))
 
@@ -41,10 +41,10 @@
 (def max-thumb-side 600)
 
 (defn artwork-meta-path [{:keys [directory]}]
-  (oio/path directory "meta.html"))
+  (fs/path directory "meta.html"))
 
 (defn artwork-meta-path-yml [{:keys [directory]}]
-  (oio/path directory "meta.yml"))
+  (fs/path directory "meta.yml"))
 
 (defn artwork-html [css {:keys [^File artworks-file]
                          :as artwork}]
@@ -76,14 +76,14 @@
 (defn enhance [{:keys [^File directory] :as artwork}]
   (let [dirname (.getName directory)]
     (-> artwork
-        (assoc :html-abs-path (oio/path target-dir dirname "index.html")
-               :html-rel-path (oio/path dirname "index.html"))
+        (assoc :html-abs-path (fs/path target-dir dirname "index.html")
+               :html-rel-path (fs/path dirname "index.html"))
         (merge (load-meta artwork)))))
 
 (defn directory-of-file [f]
   (-> f
       io/file
-      oio/dirfile))
+      fs/dirfile))
 
 (defn write-files! [css {:keys [html-abs-path
                                 ^File artworks-file]
@@ -93,7 +93,7 @@
   (io/copy artworks-file
            (-> html-abs-path
                directory-of-file
-               (oio/path (.getName artworks-file))
+               (fs/path (.getName artworks-file))
                io/file))
   artwork)
 
@@ -139,9 +139,9 @@
           [:td [:div.artworkspic
                 [:a {:href html-rel-path}
                  [:img {:src
-                        (oio/path (.getName ^File directory)
-                                  (thumb-name
-                                   (.getName ^File artworks-file)))
+                        (fs/path (.getName ^File directory)
+                                 (thumb-name
+                                  (.getName ^File artworks-file)))
                         :width 200}]]]]
           [:td [:table
                 [:tr [:td [:em (or title "")]]]
@@ -150,8 +150,8 @@
                                (clojure.string/join ", "))]]]]])]]]]))
 
 (defn thumb-path [html-abs-path artworks-file]
-  (oio/path (directory-of-file html-abs-path)
-            (thumb-name (str artworks-file))))
+  (fs/path (directory-of-file html-abs-path)
+           (thumb-name (str artworks-file))))
 
 ;; Could cache or memoize this... but there isn't too much work there,
 ;; yet...:

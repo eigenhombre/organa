@@ -97,7 +97,7 @@ handling images that I'm unlikely to easily get working with Jekyll.
 
 # License
 
-Copyright © 2016-2018, John Jacobsen. MIT License.
+Copyright © 2016-2021, John Jacobsen. MIT License.
 
 # Disclaimer
 

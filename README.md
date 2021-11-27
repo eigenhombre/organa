@@ -6,9 +6,10 @@
 
 # Introduction
 
-This project implements a generator for [my current website](http://johnj.com/) using [Emacs Org Mode](http://orgmode.org/).
+This project implements a site generator for [my current
+website](http://johnj.com/) using [Emacs Org Mode](http://orgmode.org/).
 
-* Goals
+# Goals
 
 - To provide a [Jekyll](https://jekyllrb.com/)-like (or better) workflow: edit markup files,
   have them automatically processed into HTML...
@@ -20,11 +21,19 @@ This project implements a generator for [my current website](http://johnj.com/) 
 
 # Strategy
 
-In the past I've written a few (incomplete) Org Mode parsers ([here](https://github.com/eigenhombre/blorg) is a previous attempt), but HTML is far easier to manipulate in Clojure using Hiccup or Enlive.  The current code relies on exporting Org Mode to HTML first, parsing that, and modifying the parse tree as needed.
+In the past I've written a few (incomplete) Org Mode parsers
+([here](https://github.com/eigenhombre/blorg) is a previous attempt), but HTML
+is far easier to manipulate in Clojure using Hiccup or Enlive.  The current
+code relies on one to export Org Mode to HTML first (with a few keystrokes in
+Emacs).  The program parses parsing that, and modifies the parse tree as
+needed to create cross links to other posts, etc.
 
 # Workflow
 
-If I were you, I wouldn't use this yet, other than to steal ideas from it, since I haven't generalized it for multiple sites.  Since I often change functionality and content at the same time, my current workflow is still fairly REPL-driven:
+If I were you, I wouldn't use this yet, other than to steal ideas from it,
+since I haven't generalized it for multiple sites.  Since I often change
+functionality and content at the same time, my current workflow is still
+fairly REPL-driven:
 
 - Evaluate the `core` namespace in the REPL to create the site and start the file watcher.
 - Make edits to Org files in the source directory `site-source-dir`
@@ -32,8 +41,11 @@ If I were you, I wouldn't use this yet, other than to steal ideas from it, since
   - To change the CSS for the site, edit `index.garden`; source will
     be interpreted by the `garden` Clojure library and included in
     every page.
-  - Static files that should be copied /verbatim/ into the /top level of the target site/ are added to `<site-source-dir>/static`. These are synced whenever `.org` files are updated.
-  - To tag a post (for showing the post type in the navigation section of each page), add an empty section with the relevant tag(s), e.g.:
+  - Static files that should be copied /verbatim/ into the /top level of the
+    target site/ are added to `<site-source-dir>/static`. These are synced
+    whenever `.org` files are updated.
+  - To tag a post (for showing the post type in the navigation section of each
+    page), add an empty section with the relevant tag(s), e.g.:
 
 ```
    * :mytag:othertag:

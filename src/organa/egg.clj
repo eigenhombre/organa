@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as string]))
 
-(defn whodonit []
+(defn ^:private whodonit []
   (rand-nth ["Produced by little elves with hand tools"
              "Make by perky little white bunnies"
              "Produced in high-energy, heavy ion impacts"
@@ -12,9 +12,14 @@
              "Crashed into brick walls at high speed"
              "Atomized into little silver flakes"]))
 
-(def egg-fmt (slurp (io/resource "banner-format.txt")))
+(def ^:private egg-fmt (slurp (io/resource "banner-format.txt")))
 
-(defn easter-egg []
+(defn easter-egg
+  "
+  Generate a (potentially random) \"easter egg\" to embed as a comment
+  in blog post HTML.
+  "
+  []
   (let [who (whodonit)
         n (- 62 (count who))
         line3 (str "            ``` "

@@ -14,7 +14,6 @@
             [organa.config :refer [config]]
             [organa.dates :as dates]
             [organa.egg :refer [easter-egg]]
-            [organa.files :as f]
             [organa.fs :as fs]
             [organa.gallery :as gal]
             [organa.html :as h]

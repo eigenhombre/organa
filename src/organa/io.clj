@@ -1,8 +1,9 @@
 (ns organa.io
   (:require [clojure.java.io :as io]
-            [clojure.string :as string]))
+            [clojure.string :as string])
+  (:import [java.io File]))
 
-(defn dirfile [f]
+(defn dirfile [^File f]
   (io/file (.getParent f)))
 
 (defn path [& args]

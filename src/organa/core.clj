@@ -5,6 +5,7 @@
             [clojure.java.shell]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
+            [clojure.string :as string]
             [clojure.walk]
             [environ.core :refer [env]]
             [garden.core :refer [css] :rename {css to-css}]
@@ -19,7 +20,8 @@
             [organa.image :as img]
             [organa.pages :as pages]
             [organa.parse :as parse]
-            [organa.rss :as rss]))
+            [organa.rss :as rss])
+  (:import [java.io File]))
 
 (defn ^:private remove-newline-strings [coll]
   (remove (partial = "\n") coll))
@@ -288,15 +290,15 @@
 
 (defn available-org-files [site-source-dir]
   (->> (f/files-in-directory site-source-dir :as :file)
-       (filter (comp #(.endsWith % ".org") str))
+       (filter (comp #(.endsWith ^String % ".org") str))
        (filter html-file-exists)
-       (remove (comp #(.contains % ".#") str))
-       (map #(.getName %))
-       (map #(.substring % 0 (.lastIndexOf % ".")))))
+       (remove (comp #(.contains ^String % ".#") str))
+       (map #(.getName ^File %))
+       (map #(.substring ^String % 0 (.lastIndexOf ^String % ".")))))
 
 (defn sh [& cmds]
   (apply clojure.java.shell/sh
-         (clojure.string/split (apply str cmds) #"\s+")))
+         (clojure.string/split (string/join cmds) #"\s+")))
 
 (defn ensure-target-dir-exists! [target-dir]
   ;; FIXME: do it the Java way
@@ -304,8 +306,8 @@
 
 (defn stage-site-image-files! [site-source-dir target-dir]
   ;; FIXME: avoid bash hack?
-  (doseq [f (->> (filter (partial re-find img/image-file-pattern)
-                         (f/files-in-directory site-source-dir :as :str)))]
+  (doseq [f (filter (partial re-find img/image-file-pattern)
+                    (f/files-in-directory site-source-dir :as :str))]
     (sh "cp -p " f " " target-dir)))
 
 (defn stage-site-static-files! [site-source-dir target-dir]
@@ -327,7 +329,7 @@
   (str site-source-dir "/galleries"))
 
 (defn generate-thumbnails-for-gallery! [galpath imagefiles]
-  (doseq [img (remove #(.contains % "-thumb")
+  (doseq [img (remove #(.contains ^String % "-thumb")
                       imagefiles)
           :let [[base _] (f/splitext img)
                 thumb-path (format "%s/%s-thumb.png" galpath base)

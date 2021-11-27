@@ -1,7 +1,6 @@
 (ns organa.image
   (:require [clojure.string :as string]
-            [mikera.image.core :as image]
-            [organa.image :as img]))
+            [mikera.image.core :as image]))
 
 (def image-extensions ["png" "jpg" "jpeg" "gif"])
 

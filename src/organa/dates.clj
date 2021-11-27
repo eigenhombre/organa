@@ -4,7 +4,8 @@
             [clojure.java.io :as io]
             [clj-time.format :as tformat])
   (:import [java.nio.file Files]
-           [java.nio.file.attribute PosixFileAttributeView]))
+           [java.nio.file.attribute PosixFileAttributeView]
+           [java.util Calendar]))
 
 (def article-date-format (tformat/formatter "EEEE, MMMM d, yyyy"))
 
@@ -26,19 +27,26 @@
   determine-file-creation-date-in-java
   "
   [path]
-  (-> path
-      io/file
-      .toPath
-      (Files/getFileAttributeView PosixFileAttributeView
-                                  (into-array java.nio.file.LinkOption
-                                              []))
-      .readAttributes
-      .creationTime
-      .toMillis))
+  (.toMillis
+   ^java.nio.file.attribute.FileTime
+   (.creationTime
+    ^sun.nio.fs.UnixFileAttributes
+    (.readAttributes
+     ^sun.nio.fs.UnixFileAttributeViews$Posix
+     (Files/getFileAttributeView ^sun.nio.fs.UnixPath (.toPath (io/file path))
+                                 PosixFileAttributeView
+                                 (into-array java.nio.file.LinkOption
+                                             []))))))
 
 (defn date-for-org-file [site-source-dir basename]
   (let [path (format "%s/%s.html" site-source-dir basename)]
     (from-long (or (date-for-org-file-by-header path)
                    (date-for-file-by-os path)))))
 
-(defn year [] (+ 1900 (.getYear (java.util.Date.))))
+(defn date->year [d]
+  (let [cal (Calendar/getInstance)]
+    (.setTime cal d)
+    (.get cal Calendar/YEAR)))
+
+(defn year []
+  (date->year (java.util.Date.)))

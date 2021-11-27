@@ -1,5 +1,6 @@
 (ns organa.egg
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as string]))
 
 (defn whodonit []
   (rand-nth ["Produced by little elves with hand tools"
@@ -19,5 +20,5 @@
         line3 (str "            ``` "
                    who
                    ", using "
-                   (apply str (repeat n "`")))]
+                   (string/join (repeat n "`")))]
     (format egg-fmt line3)))

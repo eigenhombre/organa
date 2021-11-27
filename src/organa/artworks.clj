@@ -10,7 +10,8 @@
             [organa.html :as html]
             [organa.image :as img]
             [organa.io :as oio]
-            [organa.parse :as parse]))
+            [organa.parse :as parse])
+  (:import [java.io File]))
 
 ;; EXPERIMENTAL
 
@@ -25,13 +26,11 @@
 (defn artworks-dirs []
   {:post [(seq %)
           (every? clojure.java.io/file %)]}
-  (->> artworks-dir
-       clojure.java.io/file
-       .listFiles
-       (filter #(.isDirectory %))))
+  (filter #(.isDirectory ^File %)
+          (.listFiles ^File (clojure.java.io/file artworks-dir))))
 
-(defn artwork-file? [f]
-  {:pre [(= java.io.File (type f))]}
+(defn artwork-file? [^File f]
+  {:pre [(= File (type f))]}
   (-> f
       .getName
       (clojure.string/split #"\.")
@@ -47,17 +46,19 @@
 (defn artwork-meta-path-yml [{:keys [directory]}]
   (oio/path directory "meta.yml"))
 
-(defn artwork-html [css {:keys [artworks-file] :as artwork}]
-  (hiccup/html
-   [:html
-    [:head [:style css]]
-    [:body
-     [:div
-      [:a {:href (.getName artworks-file)}
-       [:img {:src (.getName artworks-file)
-              :width 800}]]
-      [:pre (with-out-str
-              (pprint/pprint artwork #_(dissoc artwork :meta)))]]]]))
+(defn artwork-html [css {:keys [^File artworks-file]
+                         :as artwork}]
+  (let [artworks-file-name (.getName artworks-file)]
+    (hiccup/html
+     [:html
+      [:head [:style css]]
+      [:body
+       [:div
+        [:a {:href artworks-file-name}
+         [:img {:src artworks-file-name
+                :width 800}]]
+        [:pre (with-out-str
+                (pprint/pprint artwork #_(dissoc artwork :meta)))]]]])))
 
 (defn load-meta [artwork]
   ;; Try YAML first, then parsed Org->HTML:
@@ -72,21 +73,21 @@
         (merge (parse/parsed-org-html->table-metadata parsed-meta)
                (when title {:title title}))))))
 
-(defn enhance [{:keys [directory] :as artwork}]
-  (-> artwork
-      (assoc :html-abs-path (oio/path target-dir
-                                      (.getName directory)
-                                      "index.html")
-             :html-rel-path (oio/path (.getName directory)
-                                      "index.html"))
-      (merge (load-meta artwork))))
+(defn enhance [{:keys [^File directory] :as artwork}]
+  (let [dirname (.getName directory)]
+    (-> artwork
+        (assoc :html-abs-path (oio/path target-dir dirname "index.html")
+               :html-rel-path (oio/path dirname "index.html"))
+        (merge (load-meta artwork)))))
 
 (defn directory-of-file [f]
   (-> f
       io/file
       oio/dirfile))
 
-(defn write-files! [css {:keys [html-abs-path artworks-file] :as artwork}]
+(defn write-files! [css {:keys [html-abs-path
+                                ^File artworks-file]
+                         :as artwork}]
   (io/make-parents html-abs-path)
   (spit html-abs-path (artwork-html css artwork))
   (io/copy artworks-file
@@ -96,8 +97,9 @@
                io/file))
   artwork)
 
-(defn artworks-for-dir [d]
-  (let [artworks-file (first (filter artwork-file? (.listFiles d)))
+(defn artworks-for-dir [^File d]
+  (let [artworks-file (first (filter artwork-file?
+                                     (.listFiles d)))
         image-object (image/load-image artworks-file)
         height (image/height image-object)
         width (image/width image-object)
@@ -137,8 +139,9 @@
           [:td [:div.artworkspic
                 [:a {:href html-rel-path}
                  [:img {:src
-                        (oio/path (.getName directory)
-                                  (thumb-name (.getName artworks-file)))
+                        (oio/path (.getName ^File directory)
+                                  (thumb-name
+                                   (.getName ^File artworks-file)))
                         :width 200}]]]]
           [:td [:table
                 [:tr [:td [:em (or title "")]]]

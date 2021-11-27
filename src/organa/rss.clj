@@ -43,7 +43,7 @@
                                                   file-name)]]
                       {:title (:title f)
                        :link link-path
-                       :pubDate (.toDate (:date f))
+                       :pubDate (.toDate ^org.joda.time.DateTime (:date f))
                        :description (format "<![CDATA[ %s ]]>"
                                             (->> f
                                                  :parsed

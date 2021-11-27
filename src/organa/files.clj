@@ -1,5 +1,6 @@
 (ns organa.files
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io])
+  (:import [java.io File]))
 
 (defn files-in-directory
   "
@@ -16,11 +17,15 @@
          io/file
          .listFiles
          (map xform)
-         (remove (comp #(.contains % "/.") str)))))
+         (remove (comp #(.contains ^String % "/.") str)))))
+
+(defn ^:private ^File coerce-file [f]
+  (if (string? f)
+    (io/file f)
+    f))
 
 (defn basename [f]
-  (let [fil (if (string? f) (io/file f) f)]
-    (.getName fil)))
+  (.getName (coerce-file f)))
 
 (defn splitext
   "
@@ -31,5 +36,8 @@
     (splitext \"a.b.c\") ;;=> '(\"a.b\" \"c\")
   "
   [f]
-  (let [fil (if (string? f) (io/file f) f)]
-    (drop 1 (re-find #"^(.*?)(?:\.([^\.]*))?$" (.getName fil)))))
+  (->> f
+       coerce-file
+       basename
+       (re-find #"^(.*?)(?:\.([^\.]*))?$")
+       (drop 1)))

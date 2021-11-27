@@ -7,7 +7,7 @@
              "Make by perky little white bunnies"
              "Produced in high-energy, heavy ion impacts"
              "Forged in the fires of Odin"
-             "Seen in the Tannhauser gates"
+             "Seen near the Tannhauser gates"
              "Swept under your carpet"
              "Crashed into brick walls at high speed"
              "Atomized into little silver flakes"]))

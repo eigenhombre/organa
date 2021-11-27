@@ -25,7 +25,7 @@ In the past I've written a few (incomplete) Org Mode parsers
 ([here](https://github.com/eigenhombre/blorg) is a previous attempt), but HTML
 is far easier to manipulate in Clojure using Hiccup or Enlive.  The current
 code relies on one to export Org Mode to HTML first (with a few keystrokes in
-Emacs).  The program parses parsing that, and modifies the parse tree as
+Emacs).  The program parses the exported HTML, and modifies the parse tree as
 needed to create cross links to other posts, etc.
 
 # Workflow

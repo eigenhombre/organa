@@ -31,8 +31,8 @@
     ["a"] "a"
     ["a" "b"] "a/b"))
 
-(deftest dirfile
-  (testing "dirfile"
+(deftest directory-test
+  (testing "file / directory operations"
     (fs/with-tmp-dir d
       (testing "in a temporary directory"
         (let [test-file (fs/path d "f.txt")
@@ -41,4 +41,14 @@
           (testing (str "the parent found by `dirfile` "
                         "has a single child, the test file we made")
             (is (= [(io/file test-file)]
-                   (into [] (.listFiles ^File parent))))))))))
+                   (into [] (.listFiles ^File parent))))
+            (testing "using `files-in-directory`, result is same"
+              (is (= [(io/file test-file)]
+                     (fs/files-in-directory (str parent)
+                                            :as :file)))))
+          (testing "`basename` returns original file name"
+            (is (= "f.txt"
+                   (fs/basename test-file))))
+          (testing "`splitext` returns `basename` and extension"
+            (is (= ["f" "txt"]
+                   (fs/splitext test-file)))))))))

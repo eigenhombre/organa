@@ -15,6 +15,7 @@
             [organa.dates :as dates]
             [organa.egg :refer [easter-egg]]
             [organa.files :as f]
+            [organa.fs :as fs]
             [organa.gallery :as gal]
             [organa.html :as h]
             [organa.image :as img]
@@ -289,7 +290,7 @@
       .exists))
 
 (defn available-org-files [site-source-dir]
-  (->> (f/files-in-directory site-source-dir :as :file)
+  (->> (fs/files-in-directory site-source-dir :as :file)
        (filter (comp #(.endsWith ^String % ".org") str))
        (filter html-file-exists)
        (remove (comp #(.contains ^String % ".#") str))
@@ -307,7 +308,7 @@
 (defn stage-site-image-files! [site-source-dir target-dir]
   ;; FIXME: avoid bash hack?
   (doseq [f (filter (partial re-find img/image-file-pattern)
-                    (f/files-in-directory site-source-dir :as :str))]
+                    (fs/files-in-directory site-source-dir :as :str))]
     (sh "cp -p " f " " target-dir)))
 
 (defn stage-site-static-files! [site-source-dir target-dir]
@@ -331,7 +332,7 @@
 (defn generate-thumbnails-for-gallery! [galpath imagefiles]
   (doseq [img (remove #(.contains ^String % "-thumb")
                       imagefiles)
-          :let [[base _] (f/splitext img)
+          :let [[base _] (fs/splitext img)
                 thumb-path (format "%s/%s-thumb.png" galpath base)
                 orig-path (format "%s/%s" galpath img)]]
     (when-not (.exists (io/file thumb-path))
@@ -342,9 +343,9 @@
 
 (defn generate-thumbnails-in-galleries! [site-source-dir]
   (let [galleries-dir (galleries-path site-source-dir)]
-    (doseq [galpath (f/files-in-directory galleries-dir :as :str)
+    (doseq [galpath (fs/files-in-directory galleries-dir :as :str)
             :let [imagefiles (gal/gallery-images galpath)]]
-      (printf "Making thumbnails for gallery '%s'\n" (f/basename galpath))
+      (printf "Making thumbnails for gallery '%s'\n" (fs/basename galpath))
       (generate-thumbnails-for-gallery! galpath imagefiles))))
 
 (defn gallery-html [css galfiles]
@@ -354,7 +355,7 @@
          (html/append
           [(h/div {:class "gallery"}
                   (for [f galfiles
-                        :let [[base _] (f/splitext f)
+                        :let [[base _] (fs/splitext f)
                               thumb-path (format "%s-thumb.png" base)]]
                     (h/a {:href (str "./" f)}
                          [(h/img {:src (str "./" thumb-path)
@@ -365,9 +366,9 @@
 
 (defn generate-html-for-galleries! [site-source-dir css]
   (let [galleries-dir (galleries-path site-source-dir)]
-    (doseq [galpath (f/files-in-directory galleries-dir :as :str)
+    (doseq [galpath (fs/files-in-directory galleries-dir :as :str)
             :let [galfiles (gal/gallery-images galpath)]]
-      (printf "Making gallery '%s'\n" (f/basename galpath))
+      (printf "Making gallery '%s'\n" (fs/basename galpath))
       (spit (str galpath "/index.html")
             (gallery-html css galfiles)))))
 

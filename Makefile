@@ -1,9 +1,9 @@
-.PHONY: all docker test uberjar
+.PHONY: all docker test uberjar lint ancient-advisory
 
 BINPATH = ${HOME}/bin
 JARPATH = target/uberjar/organa.jar
 
-all: test uberjar doc install
+all: test lint ancient-advisory uberjar doc install
 
 ${JARPATH}: src/organa/*.clj project.clj resources/*
 	lein uberjar
@@ -21,8 +21,14 @@ install:
 doc:
 	lein codox
 
+lint:
+	lein do bikeshed, kibit, eastwood
+
+ancient-advisory:
+	lein ancient && echo 'up to date!' || echo 'WARNING: updates needed!'
+
 test:
-	lein do kaocha, bikeshed, kibit, eastwood
+	lein kaocha
 
 docker:
 	docker build --progress tty -t organa .

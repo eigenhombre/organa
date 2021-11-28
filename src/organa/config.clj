@@ -1,6 +1,8 @@
 (ns organa.config
   "
-  Generate map of configuration values.
+  Generate a map of configuration values.
+
+  This should eventually be more configurable.
   "
   (:require [environ.core :as env]))
 
@@ -11,9 +13,3 @@
      :remote-host remote-host
      :site-source-dir (str home-dir "/org/sites/" remote-host)
      :target-dir "/tmp/organa"}))
-
-(comment
-  (require '[marginalia.core :as marg]
-           '[clojure.java.shell :as shell])
-  (marg/run-marginalia ["src/organa/config.clj"])
-  (shell/sh "open" "docs/uberdoc.html"))

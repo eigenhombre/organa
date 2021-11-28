@@ -6,9 +6,9 @@
             [organa.html :as h]))
 
 ;; FIXME:
-(def target-dir (:target-dir config))
+(def ^:private target-dir (:target-dir config))
 ;; FIXME:
-(def remote-host (:remote-host config))
+(def ^:private remote-host (:remote-host config))
 
 (defn ^:private html-for-rss
   "
@@ -24,7 +24,13 @@
    parsed-html))
 
 (defn make-rss-feeds
-  ;; FIXME: reduce arity
+  "
+  Create RSS feeds for blog.
+
+  FIXME: reduce arity
+  FIXME: make more configurable
+  "
+  {:doc/format :markdown}
   ([topic rss-file-name org-files]
    (make-rss-feeds rss-file-name
                    (filter (comp (partial some #{topic})
@@ -56,7 +62,12 @@
                             :description "Posts by John Jacobsen"})
           (spit rss-file-path)))))
 
-(defn rss-links []
+(defn rss-links
+  "
+  Create HTML paragraph (`p`) of links for available RSS feeds.
+  "
+  {:doc/format :markdown}
+  []
   (h/p ["Subscribe: "
         (h/a {:href "feed.xml"
               :class "rss"}

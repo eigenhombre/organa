@@ -1,7 +1,11 @@
 (ns organa.html
+  "
+  Implementations of the parts of HTML needed by
+  this blog engine.
+  "
   (:require [net.cgrand.enlive-html :as html]))
 
-(defmacro deftag
+(defmacro ^:private deftag
   ([fname tagname]
    `(defn ~fname
       ([~'content] (~fname {} ~'content))
@@ -9,8 +13,8 @@
        {:tag ~(keyword tagname)
         :attrs ~'attrs
         :content ~'content})))
-  ([tagname_]
-   `(deftag ~tagname_ ~tagname_)))
+  ([tagname]
+   `(deftag ~tagname ~tagname)))
 
 (deftag a)
 (deftag div)
@@ -37,6 +41,7 @@
 (defn br [] {:tag :br})
 (defn hr [] {:tag :hr})
 
+;; FIXME: Move to an org-mode-specific namespace.
 (defn parse-org-html
   ([html-text]
    (html/html-snippet html-text))

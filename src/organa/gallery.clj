@@ -1,4 +1,7 @@
 (ns organa.gallery
+  "
+  Functions for implementing galleries of images.
+  "
   (:require [clojure.java.io :as io]
             [organa.config :as config]
             [organa.html :as h]
@@ -14,9 +17,12 @@
        (filter (partial re-find img/image-file-pattern))
        (remove #(.contains ^String % "-thumb.png"))))
 
-;; This is invoked directly from one of the org files on the blog!
-;; FIXME: sketchy!
-(defn inline-gallery [gallery-name]
+(defn inline-gallery
+  "
+  This is invoked directly from one of the org files on the blog!
+  FIXME: sketchy!
+  "
+  [gallery-name]
   (let [galpath (str (:site-source-dir config/config)
                      "/galleries/"
                      gallery-name)]

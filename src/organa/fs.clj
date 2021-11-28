@@ -1,4 +1,8 @@
 (ns organa.fs
+  "
+  Functions for interacting with files, paths, and directories in the
+  file system.
+  "
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
             [me.raynes.fs :as fs])

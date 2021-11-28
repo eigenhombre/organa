@@ -28,22 +28,15 @@ code relies on one to export Org Mode to HTML first (with a few keystrokes in
 Emacs).  The program parses the exported HTML, and modifies the parse tree as
 needed to create cross links to other posts, etc.
 
-# Workflow
+# Status
 
 If I were you, I wouldn't use this yet, other than to steal ideas from it,
-since I haven't generalized it for multiple sites.  Since I often change
-functionality and content at the same time, my current workflow is still
-fairly REPL-driven:
+since I haven't generalized it for multiple sites.
 
-- Evaluate the `core` namespace in the REPL to create the site and start the file watcher.
+# Workflow
+
 - Make edits to Org files in the source directory `site-source-dir`
   (or add new `.org` files there).
-  - To change the CSS for the site, edit `index.garden`; source will
-    be interpreted by the `garden` Clojure library and included in
-    every page.
-  - Static files that should be copied /verbatim/ into the /top level of the
-    target site/ are added to `<site-source-dir>/static`. These are synced
-    whenever `.org` files are updated.
   - To tag a post (for showing the post type in the navigation section of each
     page), add an empty section with the relevant tag(s), e.g.:
 
@@ -51,12 +44,17 @@ fairly REPL-driven:
    * :mytag:othertag:
 ```
 
-  - Directories of images in `<site-source-dir>/galleries` will be
-    turned into static image galleries
-- Export changed/added `.org` file(s) to HTML using `\C-c e hh`. This
-  will cause the file watcher to reprocess the site.
-- If needed, to restart the site-making code, re-evaluate the
-  namespace after changing Clojure code /per se/.
+- Export changed/added `.org` file(s) to HTML using `\C-c e hh`
+  (`org-expert-dispatch` to HTML).
+- To change the CSS for the site, edit `index.garden`; source will
+  be interpreted by the `garden` Clojure library and included in
+  every page.
+- Static files that should be copied /verbatim/ into the /top level of the
+  target site/ are added to `<site-source-dir>/static`. These are synced
+  whenever `.org` files are updated.
+- Directories of images in `<site-source-dir>/galleries` will be
+  turned into static image galleries
+- Run the program to generate the Website.
 - To "publish," use the commented-out forms at the bottom of the
   `core` namespace to `rsync` the code to the remote Web site.
 
@@ -87,6 +85,12 @@ I used Jekyll for a few years and was somewhat satisfied by it.  But it
 doesn't support Org Mode, and I am simply not that fond of Ruby and its
 related ecosystems.  Also I have a number of customizations relating to
 handling images that I'm unlikely to easily get working with Jekyll.
+
+## Why not another existing site generator?
+
+Probably there are some great ones out there.  I tend to have really specific
+wishes around Web site functionality, and this is the easiest way I've found
+to fulfill those.
 
 # Implementation
 

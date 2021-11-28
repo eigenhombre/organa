@@ -42,20 +42,20 @@
 
 (defn ^:private footer []
   (h/p {:class "footer"}
-       [(format "© 2006-%d John Jacobsen." (dates/year))
+       [(format "© 2006-%d John Jacobsen." (dates/current-year))
         " Made with "
         (h/a {:href "https://github.com/eigenhombre/organa"} ["Organa"])
         "."]))
 
 ;; Org mode exports changed how tags in section headings are handled...
-(defn tags-for-org-file-via-old-span-tag [parsed-html]
+(defn ^:private tags-for-org-file-via-old-span-tag [parsed-html]
   (-> parsed-html
       (html/select [:span.tag])
       first
       :content
       (#(mapcat :content %))))
 
-(defn- tags-bracketed-by-colons
+(defn ^:private tags-bracketed-by-colons
   "
 
       (tags-bracketed-by-colons \":foo:baz:\")
@@ -70,28 +70,28 @@
            #":")))
 
 ;; Org mode exports changed how tags in section headings are handled...
-(defn tags-for-org-file-using-h2 [parsed-html]
+(defn ^:private tags-for-org-file-using-h2 [parsed-html]
   (->> (html/select parsed-html [:h2])
        (mapcat (comp tags-bracketed-by-colons first :content))
        (remove nil?)))
 
 ;; Org mode exports changed how tags in section headings are handled...
-(defn tags-for-org-file [parsed-html]
+(defn ^:private tags-for-org-file [parsed-html]
   (concat
    (tags-for-org-file-via-old-span-tag parsed-html)
    (tags-for-org-file-using-h2 parsed-html)))
 
-(defn tag-markup [tags]
+(defn ^:private tag-markup [tags]
   (interleave
    (repeat " ")
    (for [t tags]
      (h/span {:class (str t "-tag tag")}
              [(h/a {:href (str t "-blog.html")} t)]))))
 
-(defn articles-nav-section [file-name
-                            available-files
-                            alltags
-                            parsed-org-file-map]
+(defn ^:private articles-nav-section [file-name
+                                 available-files
+                                 alltags
+                                 parsed-org-file-map]
   (h/div
    `(~(h/a {:name "allposts"} [])
      ~(h/h2 {:class "allposts"} ["Blog Posts "
@@ -137,13 +137,13 @@
          [(h/p [(h/a {:href "index.html"} [(h/em ["Home"])])])])
      ~(rss/rss-links))))
 
-(defn position-of-current-file [file-name available-files]
+(defn ^:private position-of-current-file [file-name available-files]
   (->> available-files
        (map-indexed vector)
        (filter (comp (partial = file-name) :file-name second))
        ffirst))
 
-(defn prev-next-tags [file-name available-files]
+(defn ^:private prev-next-tags [file-name available-files]
   (let [files (->> available-files
                    (remove :static?)
                    (remove :draft?)
@@ -165,7 +165,7 @@
                    [(:title next-post)])
               (h/span (tag-markup (:tags next-post)))])])]))
 
-(defn page-header [css]
+(defn ^:private page-header [css]
   (let [analytics-id (:google-analytics-tracking-id env)
         site-id (:google-analytics-site-id env)]
     [(html/html-snippet (easter-egg))
@@ -194,8 +194,16 @@
                 (format "gtag('config', 'UA-%s-%s');" analytics-id site-id)])
      (h/style css)]))
 
-(defn transform-enlive [file-name date available-files parsed-org-file-map
-                        tags alltags css static? draft? enl]
+(defn ^:private transform-enlive [file-name
+                                  date
+                                  available-files
+                                  parsed-org-file-map
+                                  tags
+                                  alltags
+                                  css
+                                  static?
+                                  draft?
+                                  enl]
   (let [prev-next-tags (when-not (or static? draft?)
                          (prev-next-tags file-name available-files))
         nav-section (articles-nav-section file-name
@@ -253,17 +261,17 @@
                       nav-section
                       (footer)))))
 
-(defn as-string [x]
+(defn ^:private as-string [x]
   (with-out-str
     (pprint/pprint x)))
 
-(defn process-html-file! [{:keys [target-dir]}
-                          {:keys [file-name date static? draft?
-                                  parsed-html tags unparsed-html] :as r}
-                          available-files
-                          alltags
-                          css
-                          parsed-org-file-map]
+(defn ^:private process-html-file! [{:keys [target-dir]}
+                               {:keys [file-name date static? draft?
+                                       parsed-html tags unparsed-html] :as r}
+                               available-files
+                               alltags
+                               css
+                               parsed-org-file-map]
   (->> parsed-html
        (transform-enlive file-name
                          date
@@ -281,14 +289,13 @@
        as-string
        (spit (str target-dir "/" file-name ".edn"))))
 
-(defn html-file-exists [org-file-name]
+(defn ^:private html-file-exists [org-file-name]
   (-> org-file-name
-      (clojure.string/replace
-       #"\.org$" ".html")
+      (clojure.string/replace #"\.org$" ".html")
       clojure.java.io/file
       .exists))
 
-(defn available-org-files [site-source-dir]
+(defn ^:private available-org-files [site-source-dir]
   (->> (fs/files-in-directory site-source-dir :as :file)
        (filter (comp #(.endsWith ^String % ".org") str))
        (filter html-file-exists)
@@ -296,21 +303,21 @@
        (map #(.getName ^File %))
        (map #(.substring ^String % 0 (.lastIndexOf ^String % ".")))))
 
-(defn sh [& cmds]
+(defn ^:private sh [& cmds]
   (apply clojure.java.shell/sh
          (clojure.string/split (string/join cmds) #"\s+")))
 
-(defn ensure-target-dir-exists! [target-dir]
+(defn ^:private ensure-target-dir-exists! [target-dir]
   ;; FIXME: do it the Java way
   (sh "mkdir -p " target-dir))
 
-(defn stage-site-image-files! [site-source-dir target-dir]
+(defn ^:private stage-site-image-files! [site-source-dir target-dir]
   ;; FIXME: avoid bash hack?
   (doseq [f (filter (partial re-find img/image-file-pattern)
                     (fs/files-in-directory site-source-dir :as :str))]
     (sh "cp -p " f " " target-dir)))
 
-(defn stage-site-static-files! [site-source-dir target-dir]
+(defn ^:private stage-site-static-files! [site-source-dir target-dir]
   (println "Syncing files in static directory...")
   (apply clojure.java.shell/sh
          (clojure.string/split
@@ -322,13 +329,13 @@
           #" ")))
 
 ;; FIXME: Hack-y?
-(def base-enlive-snippet
+(def ^:private base-enlive-snippet
   (html/html-snippet "<html><head></head><body></body></html>"))
 
-(defn ^:private galleries-path [site-source-dir]
+(defn ^:private  galleries-path [site-source-dir]
   (str site-source-dir "/galleries"))
 
-(defn generate-thumbnails-for-gallery! [galpath imagefiles]
+(defn ^:private generate-thumbnails-for-gallery! [galpath imagefiles]
   (doseq [img (remove #(.contains ^String % "-thumb")
                       imagefiles)
           :let [[base _] (fs/splitext img)
@@ -340,14 +347,14 @@
               orig-path)
       (img/create-thumbnail! orig-path thumb-path))))
 
-(defn generate-thumbnails-in-galleries! [site-source-dir]
+(defn ^:private generate-thumbnails-in-galleries! [site-source-dir]
   (let [galleries-dir (galleries-path site-source-dir)]
     (doseq [galpath (fs/files-in-directory galleries-dir :as :str)
             :let [imagefiles (gal/gallery-images galpath)]]
       (printf "Making thumbnails for gallery '%s'\n" (fs/basename galpath))
       (generate-thumbnails-for-gallery! galpath imagefiles))))
 
-(defn gallery-html [css galfiles]
+(defn ^:private gallery-html [css galfiles]
   (->> (html/at base-enlive-snippet
          [:head] (html/append (page-header css))
          [:body]
@@ -363,7 +370,7 @@
        (html/emit*)
        (apply str)))
 
-(defn generate-html-for-galleries! [site-source-dir css]
+(defn ^:private generate-html-for-galleries! [site-source-dir css]
   (let [galleries-dir (galleries-path site-source-dir)]
     (doseq [galpath (fs/files-in-directory galleries-dir :as :str)
             :let [galfiles (gal/gallery-images galpath)]]
@@ -371,7 +378,7 @@
       (spit (str galpath "/index.html")
             (gallery-html css galfiles)))))
 
-(defn wait-futures [futures]
+(defn ^:private wait-futures [futures]
   (loop [cnt 0]
     (let [new-cnt (count (filter realized? futures))]
       (when-not (every? realized? futures)
@@ -387,18 +394,18 @@
       (catch Throwable t
         (println t)))))
 
-(defn emit-html-to-file [target-dir file-name enlive-tree]
+(defn ^:private emit-html-to-file [target-dir file-name enlive-tree]
   (->> enlive-tree
        (html/emit*)
        (cons "<!doctype html>\n")
        (apply str)
        (spit (str target-dir "/" file-name))))
 
-(defn make-old-home-page [{:keys [target-dir]}
-                          org-files
-                          parsed-org-file-map
-                          tags
-                          css]
+(defn ^:private make-old-home-page [{:keys [target-dir]}
+                                    org-files
+                                    parsed-org-file-map
+                                    tags
+                                    css]
   (emit-html-to-file
    target-dir
    "index-old.html"
@@ -415,7 +422,7 @@
                                               parsed-org-file-map)
                         (footer)]))))
 
-(defn make-blog-page
+(defn ^:private make-blog-page
   ([config org-files parsed-org-file-map tags css]
    (make-blog-page config :all org-files parsed-org-file-map tags css))
   ([{:keys [target-dir]} tag org-files parsed-org-file-map tags css]
@@ -440,12 +447,12 @@
                                                  parsed-org-file-map)
                            (footer)]))))))
 
-(defn remove-gnu-junk [snippet]
+(defn ^:private remove-gnu-junk [snippet]
   (html/at snippet
     [:script] nil
     [:style] nil))
 
-(defn files->parsed [files-to-process]
+(defn ^:private files->parsed [files-to-process]
   (let [ssd (:site-source-dir config)]
     (into {}
           (for [f files-to-process]
@@ -465,7 +472,7 @@
                 :static? (some #{"static"} tags)
                 :draft? (some #{"draft"} tags)}])))))
 
-(defn- proof-files-to-process [all-org-files]
+(defn ^:private proof-files-to-process [all-org-files]
   (->> all-org-files
        (sort-by (fn [fname]
                   (->> (str fname ".html")
@@ -474,7 +481,7 @@
        reverse
        (take 10)))
 
-(defn generate-site [{:keys [target-dir proof?] :as config}]
+(defn ^:private generate-site [{:keys [target-dir proof?] :as config}]
   (println "The party commences....")
   (ensure-target-dir-exists! target-dir)
   (let [ssd (:site-source-dir config)

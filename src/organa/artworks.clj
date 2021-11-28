@@ -1,4 +1,7 @@
 (ns organa.artworks
+  "
+  Experimental feature for showing artworks.
+  "
   (:require [clj-yaml.core :as yaml]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
@@ -15,20 +18,20 @@
 ;; EXPERIMENTAL
 
 ;; FIXME: DRY vs. core.clj (move to config.clj after creating that)
-(def site-source-dir (:site-source-dir config/config))
-(def image-file-extensions #{"png" "gif" "jpg" "jpeg"})
-(def artworks-dir (str site-source-dir "/artworks"))
-(def target-dir (str (:target-dir config/config)
+(def ^:private site-source-dir (:site-source-dir config/config))
+(def ^:private image-file-extensions #{"png" "gif" "jpg" "jpeg"})
+(def ^:private artworks-dir (str site-source-dir "/artworks"))
+(def ^:private target-dir (str (:target-dir config/config)
                      "/artworks"))
-(def gallery-html (str target-dir "/index.html"))
+(def ^:private gallery-html (str target-dir "/index.html"))
 
-(defn artworks-dirs []
+(defn ^:private artworks-dirs []
   {:post [(seq %)
           (every? clojure.java.io/file %)]}
   (filter #(.isDirectory ^File %)
           (.listFiles ^File (clojure.java.io/file artworks-dir))))
 
-(defn artwork-file? [^File f]
+(defn ^:private artwork-file? [^File f]
   {:pre [(= File (type f))]}
   (-> f
       .getName
@@ -37,15 +40,15 @@
       image-file-extensions
       boolean))
 
-(def max-thumb-side 600)
+(def ^:private max-thumb-side 600)
 
-(defn artwork-meta-path [{:keys [directory]}]
+(defn ^:private artwork-meta-path [{:keys [directory]}]
   (fs/path directory "meta.html"))
 
-(defn artwork-meta-path-yml [{:keys [directory]}]
+(defn ^:private artwork-meta-path-yml [{:keys [directory]}]
   (fs/path directory "meta.yml"))
 
-(defn artwork-html [css {:keys [^File artworks-file]
+(defn ^:private artwork-html [css {:keys [^File artworks-file]
                          :as artwork}]
   (let [artworks-file-name (.getName artworks-file)]
     (hiccup/html
@@ -59,7 +62,7 @@
         [:pre (with-out-str
                 (pprint/pprint artwork #_(dissoc artwork :meta)))]]]])))
 
-(defn load-meta [artwork]
+(defn ^:private load-meta [artwork]
   ;; Try YAML first, then parsed Org->HTML:
   (let [meta-yml-path (artwork-meta-path-yml artwork)]
     (if (.exists (io/file meta-yml-path))
@@ -72,21 +75,21 @@
         (merge (parse/parsed-org-html->table-metadata parsed-meta)
                (when title {:title title}))))))
 
-(defn enhance [{:keys [^File directory] :as artwork}]
+(defn ^:private enhance [{:keys [^File directory] :as artwork}]
   (let [dirname (.getName directory)]
     (-> artwork
         (assoc :html-abs-path (fs/path target-dir dirname "index.html")
                :html-rel-path (fs/path dirname "index.html"))
         (merge (load-meta artwork)))))
 
-(defn directory-of-file [f]
+(defn ^:private directory-of-file [f]
   (-> f
       io/file
       fs/dirfile))
 
-(defn write-files! [css {:keys [html-abs-path
-                                ^File artworks-file]
-                         :as artwork}]
+(defn ^:private write-files! [css {:keys [html-abs-path
+                                          ^File artworks-file]
+                                   :as artwork}]
   (io/make-parents html-abs-path)
   (spit html-abs-path (artwork-html css artwork))
   (io/copy artworks-file
@@ -96,7 +99,7 @@
                io/file))
   artwork)
 
-(defn artworks-for-dir [^File d]
+(defn ^:private artworks-for-dir [^File d]
   (let [artworks-file (first (filter artwork-file?
                                      (.listFiles d)))
         image-object (image/load-image artworks-file)
@@ -117,11 +120,11 @@
      :thumb-width thumb-width
      :thumb-height thumb-height}))
 
-(defn thumb-name [s]
+(defn ^:private thumb-name [s]
   (let [[prefix _] (fs/splitext s)]
     (str prefix "-thumb.png")))
 
-(defn artworks-html [css recs]
+(defn ^:private artworks-html [css recs]
   (hiccup/html
    [:html
     [:head [:style css]]
@@ -148,14 +151,14 @@
                                (remove nil?)
                                (clojure.string/join ", "))]]]]])]]]]))
 
-(defn thumb-path [html-abs-path artworks-file]
+(defn ^:private thumb-path [html-abs-path artworks-file]
   (fs/path (directory-of-file html-abs-path)
            (thumb-name (str artworks-file))))
 
 ;; Could cache or memoize this... but there isn't too much work there,
 ;; yet...:
-(defn make-thumb! [{:keys [artworks-file
-                           html-abs-path] :as artwork}]
+(defn ^:private make-thumb! [{:keys [artworks-file
+                                     html-abs-path] :as artwork}]
   (let [tp (thumb-path html-abs-path artworks-file)]
     (io/make-parents tp)
     (img/create-thumbnail! 600 artworks-file tp))

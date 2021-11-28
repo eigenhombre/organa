@@ -2,24 +2,24 @@
   :description "An org-mode-based blogging engine"
   :url "https://github.com/eigenhombre/organa"
   :license {:name "MIT"}
-  :dependencies [[org.clojure/clojure "1.10.1"]
-                 [cheshire "5.8.1"]
-                 [clj-rss "0.2.5"]
-                 [clj-time "0.12.2"]
+  :dependencies [[org.clojure/clojure "1.10.3"]
+                 [cheshire "5.10.1"]
+                 [clj-rss "0.3.0"]
+                 [clj-time "0.15.2"]
                  [clj-yaml "0.4.0"]
-                 [clojure.java-time "0.3.2"]
+                 [clojure.java-time "0.3.3"]
                  [enlive "1.1.6"]
-                 [environ "1.1.0"]
-                 [garden "1.3.2"]
+                 [environ "1.2.0"]
+                 [garden "1.3.10"]
                  [hiccup "1.0.5"]
                  [me.raynes/fs "1.4.6"]
-                 [mount "0.1.11"]
+                 [mount "0.1.16"]
                  [net.mikera/imagez "0.12.0"]]
   :target-path "target/%s"
   :uberjar-name "organa.jar"
   :aliases {"kaocha" ["with-profile" "+kaocha" "run" "-m" "kaocha.runner"]}
   :profiles {:uberjar {:aot :all}
-             :kaocha {:dependencies [[lambdaisland/kaocha "1.0.887"]]}
+             :kaocha {:dependencies [[lambdaisland/kaocha "1.60.945"]]}
              :dev {:plugins [[lein-bikeshed "0.5.2"]
                              [lein-ancient "1.0.0-RC3"]
                              [lein-codox "0.10.8"]

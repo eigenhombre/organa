@@ -3,7 +3,8 @@
             [clojure.walk :as walk]
             [net.cgrand.enlive-html :as html]
             [organa.config :refer [config]]
-            [organa.html :as h]))
+            [organa.html :as h])
+  (:import [java.time Instant]))
 
 ;; FIXME:
 (def ^:private target-dir (:target-dir config))
@@ -49,7 +50,8 @@
                                                   file-name)]]
                       {:title (:title f)
                        :link link-path
-                       :pubDate (.toDate ^org.joda.time.DateTime (:date f))
+                       :pubDate (Instant/ofEpochMilli
+                                 (.getMillis ^org.joda.time.DateTime (:date f)))
                        :description (format "<![CDATA[ %s ]]>"
                                             (->> f
                                                  :parsed

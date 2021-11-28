@@ -65,7 +65,7 @@
     (.setTime cal d)
     (.get cal Calendar/YEAR)))
 
-(defn current-year
+(defn ^Integer current-year
   "
   Current year (at the time the program is being run).
   "

@@ -56,7 +56,8 @@
                   [(h/p
                     ["As an " (h/strong ["artist"])
                      ", I'm primarily interested in figurative oil "
-                     "painting and drawing.  You can see samples of "
+                     "painting and drawing, from life and imagination.  "
+                     "You can see samples of "
                      "my recent work on "
                      (h/a {:href "http://instagram.com/eigenhombre"}
                           "Instagram")

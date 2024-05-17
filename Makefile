@@ -31,7 +31,7 @@ test:
 	lein kaocha
 
 docker:
-	docker build --progress tty -t organa .
+	docker build -t organa .
 
 docker-quiet:
 	docker build --quiet -t organa .
